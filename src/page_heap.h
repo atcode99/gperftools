@@ -242,7 +242,7 @@ class PERFTOOLS_DLL_DECL PageHeap {
   // have small limits on the number of mmap() regions per
   // address-space.
   // REQUIRED: kMinSystemAlloc <= kMaxPages;
-  static const int kMinSystemAlloc = kMaxPages;
+  static const int kMinSystemAlloc = kMaxPages;// 128 default by atcode99
 
   // Never delay scavenging for more than the following number of
   // deallocated pages.  With 4K pages, this comes to 4GB of

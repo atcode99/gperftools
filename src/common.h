@@ -61,7 +61,7 @@ typedef uintptr_t Length;
 // waste due alignment of 25%. (eg malloc of 24 bytes will get 32 bytes)
 static const size_t kMinAlign   = 8;
 #else
-static const size_t kMinAlign   = 16;
+static const size_t kMinAlign   = 16;// 16 default by atcode99
 #endif
 
 // Using large pages speeds up the execution at a cost of larger memory use.
@@ -77,18 +77,18 @@ static const size_t kPageShift  = 15;
 #elif defined(TCMALLOC_64K_PAGES)
 static const size_t kPageShift  = 16;
 #else
-static const size_t kPageShift  = 13;
+static const size_t kPageShift  = 13;// 13, 2^13=8192, 8K default by atcode99
 #endif
 
 static const size_t kClassSizesMax = 96;
 
-static const size_t kMaxThreadCacheSize = 4 << 20;
+static const size_t kMaxThreadCacheSize = 4 << 20;// 4194304, 4M default by atcode99
 
-static const size_t kPageSize   = 1 << kPageShift;
+static const size_t kPageSize   = 1 << kPageShift;// 8192, 8K default by atcode99
 static const size_t kMaxSize    = 256 * 1024;
 static const size_t kAlignment  = 8;
 // For all span-lengths <= kMaxPages we keep an exact-size list in PageHeap.
-static const size_t kMaxPages = 1 << (20 - kPageShift);
+static const size_t kMaxPages = 1 << (20 - kPageShift);// 128 default by atcode99
 
 // Default bound on the total amount of thread caches.
 #ifdef TCMALLOC_SMALL_BUT_SLOW
@@ -96,16 +96,16 @@ static const size_t kMaxPages = 1 << (20 - kPageShift);
 // for the small memory footprint case.
 static const size_t kDefaultOverallThreadCacheSize = kMaxThreadCacheSize;
 #else
-static const size_t kDefaultOverallThreadCacheSize = 8u * kMaxThreadCacheSize;
+static const size_t kDefaultOverallThreadCacheSize = 8u * kMaxThreadCacheSize; // 33554432, 32M default by atcode99
 #endif
 
 // Lower bound on the per-thread cache sizes
-static const size_t kMinThreadCacheSize = kMaxSize * 2;
+static const size_t kMinThreadCacheSize = kMaxSize * 2;// 512K default by atcode99
 
 // The number of bytes one ThreadCache will steal from another when
 // the first ThreadCache is forced to Scavenge(), delaying the
 // next call to Scavenge for this thread.
-static const size_t kStealAmount = 1 << 16;
+static const size_t kStealAmount = 1 << 16;// 65536, 64K default by atcode99
 
 // The number of times that a deallocation can cause a freelist to
 // go over its max_length() before shrinking max_length().
@@ -118,7 +118,7 @@ static const int kMaxOverages = 3;
 // scavenging code will shrink it down when its contents are not in use.
 static const int kMaxDynamicFreeListLength = 8192;
 
-static const Length kMaxValidPages = (~static_cast<Length>(0)) >> kPageShift;
+static const Length kMaxValidPages = (~static_cast<Length>(0)) >> kPageShift;// 2251799813685247, 2^51?  default by atcode99
 
 #if __aarch64__ || __x86_64__ || _M_AMD64 || _M_ARM64
 // All current x86_64 processors only look at the lower 48 bits in
@@ -137,11 +137,11 @@ static const Length kMaxValidPages = (~static_cast<Length>(0)) >> kPageShift;
 // virtual address space, but since 48 bits has been norm for long
 // time and lots of software is relying on it, it will be opt-in from
 // OS perspective. So we can keep doing "48 bits" at least for now.
-static const int kAddressBits = (sizeof(void*) < 8 ? (8 * sizeof(void*)) : 48);
+static const int kAddressBits = (sizeof(void*) < 8 ? (8 * sizeof(void*)) : 48);// 48 default by atcode99
 #else
 // mipsen and ppcs have more general hardware so we have to support
 // full 64-bits of addresses.
-static const int kAddressBits = 8 * sizeof(void*);
+static const int kAddressBits = 8 * sizeof(void*);// 64, not support in x86 default by atcode99
 #endif
 
 namespace tcmalloc {
