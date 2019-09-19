@@ -337,7 +337,7 @@ void CpuProfiler::DisableHandler() {
 // accessing the data and therefore cannot execute concurrently with
 // prof_handler().
 void CpuProfiler::prof_handler(int sig, siginfo_t*, void* signal_ucontext,
-                               void* cpu_profiler) {
+                               void* cpu_profiler) {//@code99, CpuProfiler样本收集函数
   CpuProfiler* instance = static_cast<CpuProfiler*>(cpu_profiler);
 
   if (instance->filter_ == NULL ||
@@ -369,7 +369,7 @@ void CpuProfiler::prof_handler(int sig, siginfo_t*, void* signal_ucontext,
       depth++;  // To account for pc value in stack[0];
     }
 
-    instance->collector_.Add(depth, used_stack);
+    instance->collector_.Add(depth, used_stack);//添加到样本收集器
   }
 }
 
@@ -387,7 +387,7 @@ extern "C" PERFTOOLS_DLL_DECL int ProfilingIsEnabledForAllThreads() {
   return CpuProfiler::instance_.Enabled();
 }
 
-extern "C" PERFTOOLS_DLL_DECL int ProfilerStart(const char* fname) {
+extern "C" PERFTOOLS_DLL_DECL int ProfilerStart(const char* fname) { //@code99, CPUprofiler启动函数
   return CpuProfiler::instance_.Start(fname, NULL);
 }
 
@@ -396,7 +396,7 @@ extern "C" PERFTOOLS_DLL_DECL int ProfilerStartWithOptions(
   return CpuProfiler::instance_.Start(fname, options);
 }
 
-extern "C" PERFTOOLS_DLL_DECL void ProfilerStop() {
+extern "C" PERFTOOLS_DLL_DECL void ProfilerStop() {//@code99, CPUprofiler停止函数
   CpuProfiler::instance_.Stop();
 }
 

@@ -143,9 +143,9 @@ class ProfileData {
   void GetCurrentState(State* state) const;
 
  private:
-  static const int kAssociativity = 4;          // For hashtable
-  static const int kBuckets = 1 << 10;          // For hashtable
-  static const int kBufferLength = 1 << 18;     // For eviction buffer
+  static const int kAssociativity = 4;          // For hashtable, 每个Bucke能最多存放四条hash冲突的记录
+  static const int kBuckets = 1 << 10;          // For hashtable, 1024, 长度为1024的Bucket数组来存放样本收集的记录
+  static const int kBufferLength = 1 << 18;     // For eviction buffer, 262144, evict_数组的最大buffer
 
   // Type of slots: each slot can be either a count, or a PC value
   typedef uintptr_t Slot;

@@ -307,5 +307,5 @@ struct StackTrace {
 };
 
 }  // namespace tcmalloc
-
+//extern bool enable_finstrument;
 #endif  // TCMALLOC_COMMON_H_

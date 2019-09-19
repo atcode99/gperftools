@@ -63,7 +63,7 @@ ProfileData::Options::Options()
 
 // This function is safe to call from asynchronous signals (but is not
 // re-entrant).  However, that's not part of its public interface.
-void ProfileData::Evict(const Entry& entry) {
+void ProfileData::Evict(const Entry& entry) {//@code99, 样本数据驱逐到evict_数组
   const int d = entry.depth;
   const int nslots = d + 2;     // Number of slots needed in eviction buffer
   if (num_evicted_ + nslots > kBufferLength) {
@@ -90,7 +90,7 @@ ProfileData::ProfileData()
 }
 
 bool ProfileData::Start(const char* fname,
-                        const ProfileData::Options& options) {
+                        const ProfileData::Options& options) {//@code99, 启动样本收集器&创建样本收集文件&初始化样本收集需要的数据结构hash_&evict_
   if (enabled()) {
     return false;
   }
@@ -120,7 +120,7 @@ bool ProfileData::Start(const char* fname,
   evict_[num_evicted_++] = 3;                     // depth for header
   evict_[num_evicted_++] = 0;                     // Version number
   CHECK_NE(0, options.frequency());
-  int period = 1000000 / options.frequency();
+  int period = 1000000 / options.frequency();     // 1000000/100=10,000 微秒(μs)
   evict_[num_evicted_++] = period;                // Period (microseconds)
   evict_[num_evicted_++] = 0;                     // Padding
 
@@ -258,7 +258,7 @@ void ProfileData::FlushTable() {
   FlushEvicted();
 }
 
-void ProfileData::Add(int depth, const void* const* stack) {
+void ProfileData::Add(int depth, const void* const* stack) {//@code99, 添加到样本收集器
   if (!enabled()) {
     return;
   }
@@ -321,7 +321,7 @@ void ProfileData::Add(int depth, const void* const* stack) {
 
 // This function is safe to call from asynchronous signals (but is not
 // re-entrant).  However, that's not part of its public interface.
-void ProfileData::FlushEvicted() {
+void ProfileData::FlushEvicted() {//@code99, 写入样本收集文件
   if (num_evicted_ > 0) {
     const char* buf = reinterpret_cast<char*>(evict_);
     size_t bytes = sizeof(evict_[0]) * num_evicted_;

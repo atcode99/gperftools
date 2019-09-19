@@ -290,7 +290,7 @@ static void StartLinuxThreadTimer(int timer_type, int signal_number,
   }
 
   its.it_interval.tv_sec = 0;
-  its.it_interval.tv_nsec = 1000000000 / frequency;
+  its.it_interval.tv_nsec = 1000000000 / frequency;//frequency缺省为100, 1000000000/100ns=10ms毫秒
   its.it_value = its.it_interval;
   rv = timer_settime(timerid, 0, &its, 0);
   if (rv) {
@@ -322,7 +322,7 @@ ProfileHandler::ProfileHandler()
       interrupts_(0),
       callback_count_(0),
       allowed_(true),
-      per_thread_timer_enabled_(false) {
+      per_thread_timer_enabled_(false) {//@code99, 获取配置和安装信号处理程序
   SpinLockHolder cl(&control_lock_);
 
   timer_type_ = (getenv("CPUPROFILE_REALTIME") ? ITIMER_REAL : ITIMER_PROF);
@@ -479,7 +479,7 @@ void ProfileHandler::GetState(ProfileHandlerState* state) {
   state->allowed = allowed_;
 }
 
-void ProfileHandler::UpdateTimer(bool enable) {
+void ProfileHandler::UpdateTimer(bool enable) {//@code99, 启动定时器
   if (per_thread_timer_enabled_) {
     // Ignore any attempts to disable it because that's not supported, and it's
     // always enabled so enabling is always a NOP.
@@ -513,7 +513,7 @@ bool ProfileHandler::IsSignalHandlerAvailable() {
   // as available.
   return sa.sa_handler == SIG_IGN || sa.sa_handler == SIG_DFL;
 }
-
+//bool enable_finstrument=false;
 void ProfileHandler::SignalHandler(int sig, siginfo_t* sinfo, void* ucontext) {
   int saved_errno = errno;
   // At this moment, instance_ must be initialized because the handler is
@@ -526,8 +526,8 @@ void ProfileHandler::SignalHandler(int sig, siginfo_t* sinfo, void* ucontext) {
     ++instance->interrupts_;
     for (CallbackIterator it = instance->callbacks_.begin();
          it != instance->callbacks_.end();
-         ++it) {
-      (*it)->callback(sig, sinfo, ucontext, (*it)->callback_arg);
+         ++it) {//enable_finstrument=true;
+      (*it)->callback(sig, sinfo, ucontext, (*it)->callback_arg);//enable_finstrument=false;
     }
   }
   errno = saved_errno;
@@ -542,7 +542,7 @@ void ProfileHandlerRegisterThread() {
 }
 
 ProfileHandlerToken* ProfileHandlerRegisterCallback(
-    ProfileHandlerCallback callback, void* callback_arg) {
+    ProfileHandlerCallback callback, void* callback_arg) {//@code99, 调用ProfileHandler::Init和注册SIGPROF的回调函数CpuProfiler::prof_handler
   return ProfileHandler::Instance()->RegisterCallback(callback, callback_arg);
 }
 
