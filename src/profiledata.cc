@@ -258,7 +258,7 @@ void ProfileData::FlushTable() {
   FlushEvicted();
 }
 
-void ProfileData::Add(int depth, const void* const* stack) {//@code99, Ìí¼Óµ½Ñù±¾ÊÕ¼¯Æ÷
+void ProfileData::Add(int depth, const void* const* stack) {//@code99, Ìí¼Óµ½Ñù±¾ÊÕ¼¯Æ÷hash_&evict_&FDWrite
   if (!enabled()) {
     return;
   }
@@ -272,7 +272,7 @@ void ProfileData::Add(int depth, const void* const* stack) {//@code99, Ìí¼Óµ½Ñù±
     Slot slot = reinterpret_cast<Slot>(stack[i]);
     h = (h << 8) | (h >> (8*(sizeof(h)-1)));
     h += (slot * 31) + (slot * 7) + (slot * 3);
-  }
+  }//¼ÆËãhashÖµ
 
   count_++;
 
@@ -290,7 +290,7 @@ void ProfileData::Add(int depth, const void* const* stack) {//@code99, Ìí¼Óµ½Ñù±
         }
       }
       if (match) {
-        e->count++;
+        e->count++;//²ÉÑùÑù±¾¼Ó1
         done = true;
         break;
       }

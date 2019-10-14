@@ -271,8 +271,8 @@ static void StartLinuxThreadTimer(int timer_type, int signal_number,
   timer_t timerid;
   struct itimerspec its;
   memset(&sevp, 0, sizeof(sevp));
-  sevp.sigev_notify = SIGEV_THREAD_ID;
-  sevp._sigev_un._tid = sys_gettid();
+  sevp.sigev_notify = SIGEV_THREAD_ID;// 将信号发送到线程号为_sigev_un._tid的线程
+  sevp._sigev_un._tid = sys_gettid();// 线程tid
   sevp.sigev_signo = signal_number;
   clockid_t clock = CLOCK_THREAD_CPUTIME_ID;
   if (timer_type == ITIMER_REAL) {
@@ -290,7 +290,7 @@ static void StartLinuxThreadTimer(int timer_type, int signal_number,
   }
 
   its.it_interval.tv_sec = 0;
-  its.it_interval.tv_nsec = 1000000000 / frequency;//frequency缺省为100, 1000000000/100ns=10ms毫秒
+  its.it_interval.tv_nsec = 1000000000 / frequency;// frequency缺省为100, 1000000000/100ns=10ms毫秒
   its.it_value = its.it_interval;
   rv = timer_settime(timerid, 0, &its, 0);
   if (rv) {
@@ -326,11 +326,11 @@ ProfileHandler::ProfileHandler()
   SpinLockHolder cl(&control_lock_);
 
   timer_type_ = (getenv("CPUPROFILE_REALTIME") ? ITIMER_REAL : ITIMER_PROF);
-  signal_number_ = (timer_type_ == ITIMER_PROF ? SIGPROF : SIGALRM);
+  signal_number_ = (timer_type_ == ITIMER_PROF ? SIGPROF : SIGALRM);//信号处理函数采用SIGPROF还是SIGALRM触发
 
   // Get frequency of interrupts (if specified)
   char junk;
-  const char* fr = getenv("CPUPROFILE_FREQUENCY");
+  const char* fr = getenv("CPUPROFILE_FREQUENCY");//采样频率
   if (fr != NULL && (sscanf(fr, "%u%c", &frequency_, &junk) == 1) &&
       (frequency_ > 0)) {
     // Limit to kMaxFrequency
@@ -377,7 +377,7 @@ ProfileHandler::ProfileHandler()
 
   // Install the signal handler.
   struct sigaction sa;
-  sa.sa_sigaction = SignalHandler;
+  sa.sa_sigaction = SignalHandler;//调用了callbacks_函数
   sa.sa_flags = SA_RESTART | SA_SIGINFO;
   sigemptyset(&sa.sa_mask);
   RAW_CHECK(sigaction(signal_number_, &sa, NULL) == 0, "sigprof (enable)");
@@ -421,7 +421,7 @@ ProfileHandlerToken* ProfileHandler::RegisterCallback(
   {
     ScopedSignalBlocker block(signal_number_);
     SpinLockHolder sl(&signal_lock_);
-    callbacks_.push_back(token);
+    callbacks_.push_back(token);//call back函数CpuProfiler::prof_handler
     ++callback_count_;
     UpdateTimer(true);
   }
@@ -492,7 +492,7 @@ void ProfileHandler::UpdateTimer(bool enable) {//@code99, 启动定时器
   timer_running_ = enable;
 
   struct itimerval timer;
-  static const int kMillion = 1000000;
+  static const int kMillion = 1000000; //1s
   int interval_usec = enable ? kMillion / frequency_ : 0;
   timer.it_interval.tv_sec = interval_usec / kMillion;
   timer.it_interval.tv_usec = interval_usec % kMillion;
@@ -528,7 +528,7 @@ void ProfileHandler::SignalHandler(int sig, siginfo_t* sinfo, void* ucontext) {
          it != instance->callbacks_.end();
          ++it) {//enable_finstrument=true;
       (*it)->callback(sig, sinfo, ucontext, (*it)->callback_arg);//enable_finstrument=false;
-    }
+    }// CpuProfiler::prof_handler
   }
   errno = saved_errno;
 }
