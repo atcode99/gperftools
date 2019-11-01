@@ -564,7 +564,7 @@ static const char* hc_strstr(const char* s1, const char* s2) {
 //----------------------------------------------------------------------
 
 // Our hooks for MallocHook
-static void NewHook(const void* ptr, size_t size) {
+static void NewHook(const void* ptr, size_t size) {//@code99, heapCheckNewHook
   if (ptr != NULL) {
     const int counter = get_thread_disable_counter();
     const bool ignore = (counter > 0);
@@ -592,7 +592,7 @@ static void NewHook(const void* ptr, size_t size) {
   }
 }
 
-static void DeleteHook(const void* ptr) {
+static void DeleteHook(const void* ptr) {//@code99, heapCheckDeleteHook
   if (ptr != NULL) {
     RAW_VLOG(16, "Recording Free %p", ptr);
     { SpinLockHolder l(&heap_checker_lock);

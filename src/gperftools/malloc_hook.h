@@ -100,7 +100,7 @@ class PERFTOOLS_DLL_DECL MallocHook {
   // The NewHook is invoked whenever an object is allocated.
   // It may be passed NULL if the allocator returned NULL.
   typedef MallocHook_NewHook NewHook;
-  inline static bool AddNewHook(NewHook hook) {
+  inline static bool AddNewHook(NewHook hook) {//@code99, AddNewHook
     return MallocHook_AddNewHook(hook);
   }
   inline static bool RemoveNewHook(NewHook hook) {
@@ -111,7 +111,7 @@ class PERFTOOLS_DLL_DECL MallocHook {
   // The DeleteHook is invoked whenever an object is deallocated.
   // It may be passed NULL if the caller is trying to delete NULL.
   typedef MallocHook_DeleteHook DeleteHook;
-  inline static bool AddDeleteHook(DeleteHook hook) {
+  inline static bool AddDeleteHook(DeleteHook hook) {//@code99, AddDeleteHook
     return MallocHook_AddDeleteHook(hook);
   }
   inline static bool RemoveDeleteHook(DeleteHook hook) {

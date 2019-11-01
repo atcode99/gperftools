@@ -100,7 +100,7 @@ const char HeapProfileTable::kFileExt[] = ".heap";
 
 //----------------------------------------------------------------------
 
-static const int kHashTableSize = 179999;   // Size for bucket_table_.
+static const int kHashTableSize = 179999;   // Size for bucket_table_. size大小为 (18W - 1)
 /*static*/ const int HeapProfileTable::kMaxStackDepth;
 
 //----------------------------------------------------------------------
@@ -124,7 +124,7 @@ static bool ByAllocatedSpace(HeapProfileTable::Stats* a,
 
 HeapProfileTable::HeapProfileTable(Allocator alloc,
                                    DeAllocator dealloc,
-                                   bool profile_mmap)
+                                   bool profile_mmap)//@code99, 初始化bucket_table_&address_map_
     : alloc_(alloc),
       dealloc_(dealloc),
       profile_mmap_(profile_mmap),
@@ -209,7 +209,7 @@ int HeapProfileTable::GetCallerStackTrace(
 
 void HeapProfileTable::RecordAlloc(
     const void* ptr, size_t bytes, int stack_depth,
-    const void* const call_stack[]) {
+    const void* const call_stack[]) {//@code99, 记录分配点
   Bucket* b = GetBucket(stack_depth, call_stack);
   b->allocs++;
   b->alloc_size += bytes;
@@ -222,7 +222,7 @@ void HeapProfileTable::RecordAlloc(
   address_map_->Insert(ptr, v);
 }
 
-void HeapProfileTable::RecordFree(const void* ptr) {
+void HeapProfileTable::RecordFree(const void* ptr) {//@code99, 记录释放点
   AllocValue v;
   if (address_map_->FindAndRemove(ptr, &v)) {
     Bucket* b = v.bucket();
@@ -413,8 +413,8 @@ void HeapProfileTable::DumpNonLiveIterator(const void* ptr, AllocValue* v,
   memset(&b, 0, sizeof(b));
   b.allocs = 1;
   b.alloc_size = v->bytes;
-  b.depth = v->bucket()->depth;
-  b.stack = v->bucket()->stack;
+  b.depth = v->bucket()->depth;//filled by HeapProfileTable::RecordAlloc
+  b.stack = v->bucket()->stack;//filled by HeapProfileTable::RecordAlloc
   char buf[1024];
   int len = UnparseBucket(b, buf, 0, sizeof(buf), "", args.profile_stats);
   RawWrite(args.fd, buf, len);
@@ -437,7 +437,7 @@ void HeapProfileTable::AddIfNonLive(const void* ptr, AllocValue* v,
 
 bool HeapProfileTable::WriteProfile(const char* file_name,
                                     const Bucket& total,
-                                    AllocationMap* allocations) {
+                                    AllocationMap* allocations) { //@code99, dumpProfileBucketOneByOneForAllocationMap
   RAW_VLOG(1, "Dumping non-live heap profile to %s", file_name);
   RawFD fd = RawOpenForWriting(file_name);
   if (fd != kIllegalRawFD) {
@@ -538,8 +538,8 @@ struct HeapProfileTable::Snapshot::ReportState {
 // Callback from ReportLeaks; updates ReportState.
 void HeapProfileTable::Snapshot::ReportCallback(const void* ptr,
                                                 AllocValue* v,
-                                                ReportState* state) {
-  Entry* e = &state->buckets_[v->bucket()]; // Creates empty Entry first time
+                                                ReportState* state) {//@code99, 以调用栈为下标汇总所有的leaks
+  Entry* e = &state->buckets_[v->bucket()]; // Creates empty Entry first time, []操作符在没有找到该键值索引值的时候会插入一个键值索引的entry
   e->bucket = v->bucket();
   e->count++;
   e->bytes += v->bytes;

@@ -206,7 +206,7 @@ CpuProfiler::CpuProfiler()
   if (signal_number_str != NULL) {
     long int signal_number = strtol(signal_number_str, NULL, 10);
     if (signal_number >= 1 && signal_number <= 64) {
-      intptr_t old_signal_handler = reinterpret_cast<intptr_t>(signal(signal_number, CpuProfilerSwitch));
+      intptr_t old_signal_handler = reinterpret_cast<intptr_t>(signal(signal_number, CpuProfilerSwitch));//指定处理CPUPROFILESIGNAL信号的方法
       if (old_signal_handler == 0) {
         RAW_LOG(INFO,"Using signal %d as cpu profiling switch", signal_number);
       } else {

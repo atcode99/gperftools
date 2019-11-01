@@ -96,7 +96,7 @@ bool ProfileData::Start(const char* fname,
   }
 
   // Open output file and initialize various data structures
-  int fd = open(fname, O_CREAT | O_WRONLY | O_TRUNC, 0666);
+  int fd = open(fname, O_CREAT | O_WRONLY | O_TRUNC, 0666);//1.创建样本收集文件
   if (fd < 0) {
     // Can't open outfile for write
     return false;
@@ -111,7 +111,7 @@ bool ProfileData::Start(const char* fname,
   evictions_   = 0;
   total_bytes_ = 0;
 
-  hash_ = new Bucket[kBuckets];
+  hash_ = new Bucket[kBuckets];//2.初始化样本收集需要的数据结构hash_&evict_,三级缓冲,hash_->evict_->fd
   evict_ = new Slot[kBufferLength];
   memset(hash_, 0, sizeof(hash_[0]) * kBuckets);
 
@@ -146,7 +146,7 @@ static void FDWrite(int fd, const char* buf, size_t len) {
   }
 }
 
-static void DumpProcSelfMaps(int fd) {
+static void DumpProcSelfMaps(int fd) {//@code99, 写入/proc/pid/maps文本内容
   ProcMapsIterator::Buffer iterbuf;
   ProcMapsIterator it(0, &iterbuf);   // 0 means "current pid"
 

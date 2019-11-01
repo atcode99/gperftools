@@ -151,7 +151,7 @@ static void ProfilerFree(void* p) {
 }
 
 // We use buffers of this size in DoGetHeapProfile.
-static const int kProfileBufferSize = 1 << 20;
+static const int kProfileBufferSize = 1 << 20;//1048576, 1M by atcode99
 
 // This is a last-ditch buffer we use in DumpProfileLocked in case we
 // can't allocate more memory from ProfilerMalloc.  We expect this
@@ -340,12 +340,12 @@ static void RecordFree(const void* ptr) {
 //----------------------------------------------------------------------
 
 // static
-void NewHook(const void* ptr, size_t size) {
+void NewHook(const void* ptr, size_t size) {//@code99, heapProfilerNewHook
   if (ptr != NULL) RecordAlloc(ptr, size, 0);
 }
 
 // static
-void DeleteHook(const void* ptr) {
+void DeleteHook(const void* ptr) {//@code99, heapProfilerDeleteHook
   if (ptr != NULL) RecordFree(ptr);
 }
 

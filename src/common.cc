@@ -289,4 +289,4 @@ void* MetaDataAlloc(size_t bytes) {
 uint64_t metadata_system_bytes() { return metadata_system_bytes_; }
 
 }  // namespace tcmalloc
-//bool enable_finstrument = false;
+bool enable_finstrument = false;

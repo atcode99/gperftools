@@ -325,12 +325,12 @@ ProfileHandler::ProfileHandler()
       per_thread_timer_enabled_(false) {//@code99, 获取配置和安装信号处理程序
   SpinLockHolder cl(&control_lock_);
 
-  timer_type_ = (getenv("CPUPROFILE_REALTIME") ? ITIMER_REAL : ITIMER_PROF);
-  signal_number_ = (timer_type_ == ITIMER_PROF ? SIGPROF : SIGALRM);//信号处理函数采用SIGPROF还是SIGALRM触发
+  timer_type_ = (getenv("CPUPROFILE_REALTIME") ? ITIMER_REAL : ITIMER_PROF);//ITIMER_REAL is not as accurate as ITIMER_PROF(官方注释)
+  signal_number_ = (timer_type_ == ITIMER_PROF ? SIGPROF : SIGALRM);//1.信号处理函数采用SIGPROF还是SIGALRM触发
 
   // Get frequency of interrupts (if specified)
   char junk;
-  const char* fr = getenv("CPUPROFILE_FREQUENCY");//采样频率
+  const char* fr = getenv("CPUPROFILE_FREQUENCY");//2.采样频率
   if (fr != NULL && (sscanf(fr, "%u%c", &frequency_, &junk) == 1) &&
       (frequency_ > 0)) {
     // Limit to kMaxFrequency
@@ -377,7 +377,7 @@ ProfileHandler::ProfileHandler()
 
   // Install the signal handler.
   struct sigaction sa;
-  sa.sa_sigaction = SignalHandler;//调用了callbacks_函数
+  sa.sa_sigaction = SignalHandler;//3.安装信号处理程序,SignalHandler调用了callbacks_函数
   sa.sa_flags = SA_RESTART | SA_SIGINFO;
   sigemptyset(&sa.sa_mask);
   RAW_CHECK(sigaction(signal_number_, &sa, NULL) == 0, "sigprof (enable)");
@@ -542,7 +542,7 @@ void ProfileHandlerRegisterThread() {
 }
 
 ProfileHandlerToken* ProfileHandlerRegisterCallback(
-    ProfileHandlerCallback callback, void* callback_arg) {//@code99, 调用ProfileHandler::Init和注册SIGPROF的回调函数CpuProfiler::prof_handler
+    ProfileHandlerCallback callback, void* callback_arg) {//@code99, 注册SIGPROF的回调函数CpuProfiler::prof_handler
   return ProfileHandler::Instance()->RegisterCallback(callback, callback_arg);
 }
 
@@ -555,7 +555,7 @@ void ProfileHandlerReset() {
 }
 
 void ProfileHandlerGetState(ProfileHandlerState* state) {
-  ProfileHandler::Instance()->GetState(state);
+  ProfileHandler::Instance()->GetState(state);//调用ProfileHandler::Init
 }
 
 #else  // OS_CYGWIN
