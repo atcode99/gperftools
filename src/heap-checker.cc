@@ -186,7 +186,7 @@ DEFINE_bool(heap_check_test_pointer_alignment,
 // use 1 if any alignment is ok.
 // heap_check_test_pointer_alignment flag guides if we try the value of 1.
 // The larger it can be, the lesser is the chance of missing real leaks.
-static const size_t kPointerSourceAlignment = sizeof(void*);
+static const size_t kPointerSourceAlignment = sizeof(void*); //sizeof(void*) is 8
 DEFINE_int32(heap_check_pointer_source_alignment,
 	     EnvToInt("HEAP_CHECK_POINTER_SOURCE_ALIGNMENT",
                       kPointerSourceAlignment),
@@ -632,7 +632,7 @@ static StackDirection stack_direction = UNKNOWN_DIRECTION;
 static void RegisterStackLocked(const void* top_ptr) {
   RAW_DCHECK(heap_checker_lock.IsHeld(), "");
   RAW_DCHECK(MemoryRegionMap::LockIsHeld(), "");
-  RAW_VLOG(10, "Thread stack at %p", top_ptr);
+  RAW_VLOG(10, "Thread stack at %p", top_ptr);// &a_local_var, 地址位于/proc/self/maps [stack]中
   uintptr_t top = AsInt(top_ptr);
   stack_tops->insert(top);  // add for later use
 
@@ -659,7 +659,7 @@ static void RegisterStackLocked(const void* top_ptr) {
                                           THREAD_DATA));
     }
   // not in MemoryRegionMap, look in library_live_objects:
-  } else if (FLAGS_heap_check_ignore_global_live) {
+  } else if (FLAGS_heap_check_ignore_global_live) { // 收集所有的/proc/self/maps [stack]中的可疑内存到live_objects
     for (LibraryLiveObjectsStacks::iterator lib = library_live_objects->begin();
          lib != library_live_objects->end(); ++lib) {
       for (LiveObjectsStack::iterator span = lib->second.begin();
@@ -744,12 +744,12 @@ static void MakeDisabledLiveCallbackLocked(
     uintptr_t addr = AsInt(info.call_stack[depth]);
     if (disabled_ranges) {
       DisabledRangeMap::const_iterator iter
-        = disabled_ranges->upper_bound(addr);
+        = disabled_ranges->upper_bound(addr); // upper_bound查找
       if (iter != disabled_ranges->end()) {
-        RAW_DCHECK(iter->first > addr, "");
+        RAW_DCHECK(iter->first > addr, "");// 第一个是end_address
         if (iter->second.start_address < addr  &&
             iter->second.max_depth > depth) {
-          range_disable = true;  // in range; dropping
+          range_disable = true;  // in range; dropping，stack的函数地址在start_address和end_address之间
           break;
         }
       }
@@ -759,10 +759,10 @@ static void MakeDisabledLiveCallbackLocked(
     uintptr_t start_address = AsInt(ptr);
     uintptr_t end_address = start_address + info.object_size;
     StackTopSet::const_iterator iter
-      = stack_tops->lower_bound(start_address);
+      = stack_tops->lower_bound(start_address); // lower_bound查找
     if (iter != stack_tops->end()) {
       RAW_DCHECK(*iter >= start_address, "");
-      if (*iter < end_address) {
+      if (*iter < end_address) { // 线程调用栈
         // We do not disable (treat as live) whole allocated regions
         // if they are used to hold thread call stacks
         // (i.e. when we find a stack inside).
@@ -803,7 +803,7 @@ static void RecordGlobalDataLocked(uintptr_t start_address,
                                    const char* filename) {
   RAW_DCHECK(heap_checker_lock.IsHeld(), "");
   // Ignore non-writeable regions.
-  if (strchr(permissions, 'w') == NULL) return;
+  if (strchr(permissions, 'w') == NULL) return;//数据读写区
   if (filename == NULL  ||  *filename == '\0') {
     filename = kUnnamedProcSelfMapEntry;
   }
@@ -946,7 +946,7 @@ HeapLeakChecker::ProcMapsResult HeapLeakChecker::UseProcMapsLocked(
         // All lines starting like
         // "401dc000-4030f000 r??p 00132000 03:01 13991972  lib/bin"
         // identify a data and code sections of a shared library or our binary
-        if (inode != 0 && strncmp(permissions, "r-xp", 4) == 0) {
+        if (inode != 0 && strncmp(permissions, "r-xp", 4) == 0) {//程序区
           DisableLibraryAllocsLocked(filename, start_address, end_address);
         }
         break;
@@ -1038,7 +1038,7 @@ static enum {
   for (int i = 0; i < num_threads; ++i) {
     // the leak checking thread itself is handled
     // specially via self_thread_stack, not here:
-    if (thread_pids[i] == self_thread_pid) continue;
+    if (thread_pids[i] == self_thread_pid) continue;//如果只有一个主线程，以下不执行，故live_objects没有数据
     RAW_VLOG(11, "Handling thread with pid %d", thread_pids[i]);
 #ifdef THREAD_REGS
     THREAD_REGS thread_regs;
@@ -1066,8 +1066,8 @@ static enum {
 #endif
   }
   // Use all the collected thread (stack) liveness sources:
-  IgnoreLiveObjectsLocked("threads stack data", "");
-  if (thread_registers.size()) {
+  IgnoreLiveObjectsLocked("threads stack data", "");//如果只有一个主线程，不执行，因为live_objects没有数据
+  if (thread_registers.size()) { //如果只有一个主线程，不执行，因为thread_registers没有数据
     // Make thread registers be live heap data sources.
     // we rely here on the fact that vector is in one memory chunk:
     RAW_VLOG(11, "Live registers at %p of %" PRIuS " bytes",
@@ -1142,7 +1142,7 @@ void HeapLeakChecker::IgnoreNonThreadLiveObjectsLocked() {
   // Actually make global data live:
   if (FLAGS_heap_check_ignore_global_live) {
     bool have_null_region_callers = false;
-    for (LibraryLiveObjectsStacks::iterator l = library_live_objects->begin();
+    for (LibraryLiveObjectsStacks::iterator l = library_live_objects->begin(); //library_live_objects is RECORD_GLOBAL_DATA
          l != library_live_objects->end(); ++l) {
       RAW_CHECK(live_objects->empty(), "");
       // Process library_live_objects in l->second
@@ -1167,7 +1167,7 @@ void HeapLeakChecker::IgnoreNonThreadLiveObjectsLocked() {
         // by the heap itself as well as what's been allocated with
         // any allocator on top of mmap.
         bool subtract = true;
-        if (!region->is_stack  &&  global_region_caller_ranges) {
+        if (!region->is_stack  &&  global_region_caller_ranges) { //filter caller global_region_caller_ranges is DISABLE_LIBRARY_ALLOCS
           if (region->caller() == static_cast<uintptr_t>(NULL)) {
             have_null_region_callers = true;
           } else {
@@ -1288,7 +1288,7 @@ void HeapLeakChecker::IgnoreAllLiveObjectsLocked(const void* self_stack_top) {
   bool need_to_ignore_non_thread_objects = true;
   self_thread_pid = getpid();
   self_thread_stack_top = self_stack_top;
-  if (FLAGS_heap_check_ignore_thread_live) {
+  if (FLAGS_heap_check_ignore_thread_live) {enable_finstrument=false;
     // In case we are doing CPU profiling we'd like to do all the work
     // in the main thread, not in the special thread created by
     // TCMalloc_ListAllProcessThreads, so that CPU profiler can
@@ -1298,9 +1298,9 @@ void HeapLeakChecker::IgnoreAllLiveObjectsLocked(const void* self_stack_top) {
     // (run everything in the main thread) safely only if there's just
     // the main thread itself in our process.  This variable reflects
     // these two conditions:
-    bool want_and_can_run_in_main_thread =
-      ProfilingIsEnabledForAllThreads()  &&
-      TCMalloc_ListAllProcessThreads(NULL, IsOneThread) == 1;
+    bool want_and_can_run_in_main_thread =  //is 0
+      ProfilingIsEnabledForAllThreads()  && // This is false for heap-checker, if you don't link in -lprofiler
+      TCMalloc_ListAllProcessThreads(NULL, IsOneThread) == 1;//linuxthreads.cc:556
     // When the normal path of TCMalloc_ListAllProcessThreads below is taken,
     // we fully suspend the threads right here before any liveness checking
     // and keep them suspended for the whole time of liveness checking
@@ -1310,7 +1310,7 @@ void HeapLeakChecker::IgnoreAllLiveObjectsLocked(const void* self_stack_top) {
     //  graph while we walk it).
     int r = want_and_can_run_in_main_thread
             ? IgnoreLiveThreadsLocked(NULL, 1, &self_thread_pid, dummy_ap)
-            : TCMalloc_ListAllProcessThreads(NULL, IgnoreLiveThreadsLocked);
+            : TCMalloc_ListAllProcessThreads(NULL, IgnoreLiveThreadsLocked);enable_finstrument=true;
     need_to_ignore_non_thread_objects = r < 0;
     if (r < 0) {
       RAW_LOG(WARNING, "Thread finding failed with %d errno=%d", r, errno);
@@ -1338,11 +1338,11 @@ void HeapLeakChecker::IgnoreAllLiveObjectsLocked(const void* self_stack_top) {
   }
   // Do all other live data ignoring here if we did not do it
   // within thread listing callback with all threads stopped.
-  if (need_to_ignore_non_thread_objects) {
+  if (need_to_ignore_non_thread_objects) {//如果FLAGS_heap_check_ignore_thread_live is true, 以下不执行，因为执行完毕need_to_ignore_non_thread_objects=0
     if (FLAGS_heap_check_ignore_global_live) {
       UseProcMapsLocked(RECORD_GLOBAL_DATA);
     }
-    IgnoreNonThreadLiveObjectsLocked();
+    IgnoreNonThreadLiveObjectsLocked();//如果FLAGS_heap_check_ignore_thread_live is true, 在IgnoreLiveThreadsLocked执行
   }
   if (live_objects_total) {
     RAW_VLOG(10, "Ignoring %" PRId64 " reachable objects of %" PRId64 " bytes",
@@ -1357,7 +1357,7 @@ void HeapLeakChecker::IgnoreAllLiveObjectsLocked(const void* self_stack_top) {
 // Alignment at which we should consider pointer positions
 // in IgnoreLiveObjectsLocked. Will normally use the value of
 // FLAGS_heap_check_pointer_source_alignment.
-static size_t pointer_source_alignment = kPointerSourceAlignment;
+static size_t pointer_source_alignment = kPointerSourceAlignment; //sizeof(void*); //sizeof(void*) is 8
 // Global lock for HeapLeakChecker::DoNoLeaks
 // to protect pointer_source_alignment.
 static SpinLock alignment_checker_lock(SpinLock::LINKER_INITIALIZED);
@@ -1404,8 +1404,8 @@ static SpinLock alignment_checker_lock(SpinLock::LINKER_INITIALIZED);
       live_object_count += 1;
       live_byte_count += size;
     }
-    RAW_VLOG(13, "Looking for heap pointers in %p of %" PRIuS " bytes",
-                object, size);
+    RAW_VLOG(13, "Looking for heap pointers at place %d in %p of %" PRIuS " bytes",
+                place, object, size);
     const char* const whole_object = object;
     size_t const whole_size = size;
     // Try interpretting any byte sequence in object,size as a heap pointer:
@@ -1469,7 +1469,7 @@ static SpinLock alignment_checker_lock(SpinLock::LINKER_INITIALIZED);
         // RAW_VLOG(17, "Trying pointer to %p at %p", ptr, object);
         size_t object_size;
         if (HaveOnHeapLocked(&ptr, &object_size)  &&
-            heap_profile->MarkAsLive(ptr)) {
+            heap_profile->MarkAsLive(ptr)) { //如果能够找到则MarkAsLive
           // We take the (hopefully low) risk here of encountering by accident
           // a byte sequence in memory that matches an address of
           // a heap object which is in fact leaked.
@@ -1492,10 +1492,10 @@ static SpinLock alignment_checker_lock(SpinLock::LINKER_INITIALIZED);
           live_object_count += 1;
           live_byte_count += object_size;
           live_objects->push_back(AllocObject(ptr, object_size,
-                                              IGNORED_ON_HEAP));
+                                              IGNORED_ON_HEAP));//放入live_objects，这样下一次循环检查是否指向一个内存，指针的指针，参考函数注释
         }
       }
-      object += pointer_source_alignment;
+      object += pointer_source_alignment;// 移位地址，查找下一个
     }
   }
   live_objects_total += live_object_count;
@@ -1745,8 +1745,8 @@ bool HeapLeakChecker::DoNoLeaks(ShouldSymbolize should_symbolize) {
     // Update global_region_caller_ranges. They may need to change since
     // e.g. initialization because shared libraries might have been loaded or
     // unloaded.
-    Allocator::DeleteAndNullIfNot(&global_region_caller_ranges);
-    ProcMapsResult pm_result = UseProcMapsLocked(DISABLE_LIBRARY_ALLOCS);
+    Allocator::DeleteAndNullIfNot(&global_region_caller_ranges);//by HeapLeakChecker_InternalInitStart DISABLE_LIBRARY_ALLOCS
+    ProcMapsResult pm_result = UseProcMapsLocked(DISABLE_LIBRARY_ALLOCS);//double check, if there is no change, DisableLibraryAllocsLocked disabled_ranges will not insert
     RAW_CHECK(pm_result == PROC_MAPS_USED, "");
 
     // Keep track of number of internally allocated objects so we
@@ -1767,7 +1767,7 @@ bool HeapLeakChecker::DoNoLeaks(ShouldSymbolize should_symbolize) {
     RAW_DCHECK(FLAGS_heap_check_pointer_source_alignment > 0, "");
     pointer_source_alignment = FLAGS_heap_check_pointer_source_alignment;
     IgnoreAllLiveObjectsLocked(&a_local_var);
-    leaks = heap_profile->NonLiveSnapshot(base);
+    leaks = heap_profile->NonLiveSnapshot(base);//删除start_snapshot_的内存记录
 
     inuse_bytes_increase_ = static_cast<ssize_t>(leaks->total().alloc_size);
     inuse_allocs_increase_ = static_cast<ssize_t>(leaks->total().allocs);
@@ -2367,7 +2367,7 @@ inline bool HeapLeakChecker::HaveOnHeapLocked(const void** ptr,
   // Commented-out because HaveOnHeapLocked is very performance-critical:
   // RAW_DCHECK(heap_checker_lock.IsHeld(), "");
   const uintptr_t addr = AsInt(*ptr);
-  if (heap_profile->FindInsideAlloc(
+  if (heap_profile->FindInsideAlloc( //在address_map_里面查找是否有记录，即*ptr是否在/proc/self/maps [heap]中
         *ptr, max_heap_object_size, ptr, object_size)) {
     RAW_VLOG(16, "Got pointer into %p at +%" PRIuPTR " offset",
              *ptr, addr - AsInt(*ptr));

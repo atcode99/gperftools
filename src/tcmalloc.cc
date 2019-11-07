@@ -1759,7 +1759,7 @@ static void* do_allocate_full(size_t size) {
   if (PREDICT_FALSE(p == NULL)) {
     p = OOMHandler(size);
   }
-  MallocHook::InvokeNewHook(p, size);
+  MallocHook::InvokeNewHook(p, size);//调用NewHook
   return CheckedMallocResult(p);
 }
 
@@ -1883,7 +1883,7 @@ void* tc_malloc(size_t size) PERFTOOLS_NOTHROW {
 static ATTRIBUTE_ALWAYS_INLINE inline
 void free_fast_path(void *ptr) {
   if (PREDICT_FALSE(!base::internal::delete_hooks_.empty())) {
-    tcmalloc::invoke_hooks_and_free(ptr);
+    tcmalloc::invoke_hooks_and_free(ptr);//调用delete_hooks_
     return;
   }
   do_free(ptr);

@@ -505,7 +505,7 @@ static void ListerThread(struct ListerParams *args) {
          * which takes care of resuming the threads for us.
          */
         args->result = args->callback(args->parameter, num_threads,
-                                      pids, args->ap);
+                                      pids, args->ap);// IgnoreLiveThreadsLocked
         args->err = errno;
 
         /* Callback should have resumed threads, but better safe than sorry  */
@@ -557,7 +557,7 @@ int TCMalloc_ListAllProcessThreads(void *parameter,
   struct kernel_sigset_t sig_blocked, sig_old;
   sem_t                  lock;
 
-  va_start(args.ap, callback);
+  va_start(args.ap, callback);//获取可变参数列表的第一个参数的地址, #define va_start(list,param1)   ( list = (va_list)&param1+ sizeof(param1) )
 
   /* If we are short on virtual memory, initializing the alternate stack
    * might trigger a SIGSEGV. Let's do this early, before it could get us
@@ -682,7 +682,7 @@ failed:
   if (!dumpable)
     sys_prctl(PR_SET_DUMPABLE, dumpable);
 
-  va_end(args.ap);
+  va_end(args.ap);//清空va_list可变参数列表，#define va_end(list) ( list = (va_list)0 )
 
   errno = args.err;
   return args.result;

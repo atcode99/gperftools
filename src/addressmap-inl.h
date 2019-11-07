@@ -373,7 +373,7 @@ const Value* AddressMap<Value>::FindInside(ValueSizeFunc size_func,
           const Number e_num = reinterpret_cast<Number>(e->key);
           if (e_num <= key_num) {
             if (e_num == key_num  ||  // to handle 0-sized ranges
-                key_num < e_num + (*size_func)(e->value)) {
+                key_num < e_num + (*size_func)(e->value)) { //range search, key_num is between e_num and e->value
               *res_key = e->key;
               return &e->value;
             }

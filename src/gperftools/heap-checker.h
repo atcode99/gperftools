@@ -293,8 +293,8 @@ class PERFTOOLS_DLL_DECL HeapLeakChecker {
 
   // Type of task for UseProcMapsLocked
   enum ProcMapsTask {
-    RECORD_GLOBAL_DATA,
-    DISABLE_LIBRARY_ALLOCS
+    RECORD_GLOBAL_DATA,    // /proc/self/maps w 数据读写区，包含[heap], [stack]
+    DISABLE_LIBRARY_ALLOCS // /proc/self/maps r-xp 程序区
   };
 
   // Success/Error Return codes for UseProcMapsLocked.

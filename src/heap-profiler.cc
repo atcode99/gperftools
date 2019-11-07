@@ -461,7 +461,7 @@ extern "C" void HeapProfilerStart(const char* prefix) {
       reinterpret_cast<char*>(ProfilerMalloc(kProfileBufferSize));
 
   heap_profile = new(ProfilerMalloc(sizeof(HeapProfileTable)))
-      HeapProfileTable(ProfilerMalloc, ProfilerFree, FLAGS_mmap_profile);
+      HeapProfileTable(ProfilerMalloc, ProfilerFree, FLAGS_mmap_profile);// 1.HeapProfileTable::HeapProfileTable, 初始化
 
   last_dump_alloc = 0;
   last_dump_free = 0;
@@ -473,7 +473,7 @@ extern "C" void HeapProfilerStart(const char* prefix) {
   // sequence of profiles.
 
   if (FLAGS_only_mmap_profile == false) {
-    // Now set the hooks that capture new/delete and malloc/free.
+    // Now set the hooks that capture new/delete and malloc/free. 2.设置了内存分配/释放的hook
     RAW_CHECK(MallocHook::AddNewHook(&NewHook), "");
     RAW_CHECK(MallocHook::AddDeleteHook(&DeleteHook), "");
   }

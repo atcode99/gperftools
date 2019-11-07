@@ -259,8 +259,8 @@ T HookList<T>::ExchangeSingular(T value_as_t) {
 template struct HookList<MallocHook::NewHook>;
 
 HookList<MallocHook::NewHook> new_hooks_ =
-    INIT_HOOK_LIST_WITH_VALUE(&InitialNewHook);
-HookList<MallocHook::DeleteHook> delete_hooks_ = INIT_HOOK_LIST;
+    INIT_HOOK_LIST_WITH_VALUE(&InitialNewHook);//分配点的hook列表
+HookList<MallocHook::DeleteHook> delete_hooks_ = INIT_HOOK_LIST;//释放点的hook列表
 HookList<MallocHook::PreMmapHook> premmap_hooks_ =
     INIT_HOOK_LIST_WITH_VALUE(&InitialPreMMapHook);
 HookList<MallocHook::MmapHook> mmap_hooks_ = INIT_HOOK_LIST;
@@ -296,7 +296,7 @@ using base::internal::sbrk_hooks_;
 extern "C"
 int MallocHook_AddNewHook(MallocHook_NewHook hook) {
   RAW_VLOG(10, "AddNewHook(%p)", hook);
-  return new_hooks_.Add(hook);
+  return new_hooks_.Add(hook);//添加到new_hooks_链表
 }
 
 extern "C"
@@ -308,7 +308,7 @@ int MallocHook_RemoveNewHook(MallocHook_NewHook hook) {
 extern "C"
 int MallocHook_AddDeleteHook(MallocHook_DeleteHook hook) {
   RAW_VLOG(10, "AddDeleteHook(%p)", hook);
-  return delete_hooks_.Add(hook);
+  return delete_hooks_.Add(hook);//添加到delete_hooks_链表
 }
 
 extern "C"
@@ -495,14 +495,14 @@ void MallocHook::InvokeNewHookSlow(const void* p, size_t s) {
   if (tcmalloc::IsEmergencyPtr(p)) {
     return;
   }
-  INVOKE_HOOKS(NewHook, new_hooks_, (p, s));
+  INVOKE_HOOKS(NewHook, new_hooks_, (p, s));//调用NewHook，SI中按F7搜索
 }
 
 void MallocHook::InvokeDeleteHookSlow(const void* p) {
   if (tcmalloc::IsEmergencyPtr(p)) {
     return;
   }
-  INVOKE_HOOKS(DeleteHook, delete_hooks_, (p));
+  INVOKE_HOOKS(DeleteHook, delete_hooks_, (p));//调用DeleteHook，SI中按F7搜索
 }
 
 void MallocHook::InvokePreMmapHookSlow(const void* start,
@@ -655,8 +655,8 @@ extern "C" int MallocHook_GetCallerStackTrace(void** result, int max_depth,
       while (i + 1 < depth && InHookCaller(stack[i+1])) {
         i++;
       }
-      RAW_VLOG(10, "Found hooked allocator at %d: %p <- %p",
-                   i, stack[i], stack[i+1]);
+      //RAW_VLOG(10, "Found hooked allocator at %d: %p <- %p",
+      //             i, stack[i], stack[i+1]);
       i += 1;  // skip hook caller frame
       depth -= i;  // correct depth
       if (depth > max_depth) depth = max_depth;
