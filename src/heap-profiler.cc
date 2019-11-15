@@ -158,7 +158,7 @@ static const int kProfileBufferSize = 1 << 20;//1048576, 1M by atcode99
 // will be used by HeapProfileEndWriter when the application has to
 // exit due to out-of-memory.  This buffer is allocated in
 // HeapProfilerStart.  Access to this must be protected by heap_lock.
-static char* global_profiler_buffer = NULL;
+static char* global_profiler_buffer = NULL;//写文件的缓冲内存DoGetHeapProfileLocked
 
 
 //----------------------------------------------------------------------
@@ -183,7 +183,7 @@ static HeapProfileTable* heap_profile = NULL;  // the heap profile table
 //----------------------------------------------------------------------
 
 // Input must be a buffer of size at least 1MB.
-static char* DoGetHeapProfileLocked(char* buf, int buflen) {
+static char* DoGetHeapProfileLocked(char* buf, int buflen) {//@code99, 获取HeapProfile
   // We used to be smarter about estimating the required memory and
   // then capping it to 1MB and generating the profile into that.
   if (buf == NULL || buflen < 1)
@@ -219,7 +219,7 @@ static void NewHook(const void* ptr, size_t size);
 static void DeleteHook(const void* ptr);
 
 // Helper for HeapProfilerDump.
-static void DumpProfileLocked(const char* reason) {
+static void DumpProfileLocked(const char* reason) {//@code99, DumpProfile
   RAW_DCHECK(heap_lock.IsHeld(), "");
   RAW_DCHECK(is_on, "");
   RAW_DCHECK(!dumping, "");
@@ -232,13 +232,13 @@ static void DumpProfileLocked(const char* reason) {
   char file_name[1000];
   dump_count++;
   snprintf(file_name, sizeof(file_name), "%s.%04d%s",
-           filename_prefix, dump_count, HeapProfileTable::kFileExt);
+           filename_prefix, dump_count, HeapProfileTable::kFileExt); // 每dump一次，文件index+1
 
   // Dump the profile
   RAW_VLOG(0, "Dumping heap profile to %s (%s)", file_name, reason);
   // We must use file routines that don't access memory, since we hold
   // a memory lock now.
-  RawFD fd = RawOpenForWriting(file_name);
+  RawFD fd = RawOpenForWriting(file_name);//open文件
   if (fd == kIllegalRawFD) {
     RAW_LOG(ERROR, "Failed dumping heap profile to %s", file_name);
     dumping = false;
@@ -266,7 +266,7 @@ static void DumpProfileLocked(const char* reason) {
 
 // Dump a profile after either an allocation or deallocation, if
 // the memory use has changed enough since the last dump.
-static void MaybeDumpProfileLocked() {
+static void MaybeDumpProfileLocked() {//@code99, 判断是否满足HeapProfileDump的条件
   if (!dumping) {
     const HeapProfileTable::Stats& total = heap_profile->total();
     const int64 inuse_bytes = total.alloc_size - total.free_size;
@@ -275,25 +275,25 @@ static void MaybeDumpProfileLocked() {
 
     if (FLAGS_heap_profile_allocation_interval > 0 &&
         total.alloc_size >=
-        last_dump_alloc + FLAGS_heap_profile_allocation_interval) {
+        last_dump_alloc + FLAGS_heap_profile_allocation_interval) {//分配的内存总数
       snprintf(buf, sizeof(buf), ("%" PRId64 " MB allocated cumulatively, "
                                   "%" PRId64 " MB currently in use"),
                total.alloc_size >> 20, inuse_bytes >> 20);
       need_to_dump = true;
     } else if (FLAGS_heap_profile_deallocation_interval > 0 &&
                total.free_size >=
-               last_dump_free + FLAGS_heap_profile_deallocation_interval) {
+               last_dump_free + FLAGS_heap_profile_deallocation_interval) {//释放的内存总数
       snprintf(buf, sizeof(buf), ("%" PRId64 " MB freed cumulatively, "
                                   "%" PRId64 " MB currently in use"),
                total.free_size >> 20, inuse_bytes >> 20);
       need_to_dump = true;
     } else if (FLAGS_heap_profile_inuse_interval > 0 &&
                inuse_bytes >
-               high_water_mark + FLAGS_heap_profile_inuse_interval) {
+               high_water_mark + FLAGS_heap_profile_inuse_interval) {//使用的(分配的但未释放的)内存总数大于高水位线
       snprintf(buf, sizeof(buf), "%" PRId64 " MB currently in use",
                inuse_bytes >> 20);
       need_to_dump = true;
-    } else if (FLAGS_heap_profile_time_interval > 0 ) {
+    } else if (FLAGS_heap_profile_time_interval > 0 ) {//定时的时间到了, 按照一定的时间间隔
       int64 current_time = time(NULL);
       if (current_time - last_dump_time >=
           FLAGS_heap_profile_time_interval) {
@@ -420,7 +420,7 @@ static void SbrkHook(const void* result, ptrdiff_t increment) {
 // Starting/stopping/dumping
 //----------------------------------------------------------------------
 
-extern "C" void HeapProfilerStart(const char* prefix) {
+extern "C" void HeapProfilerStart(const char* prefix) {//@code99, HeapProfiler启动函数
   SpinLockHolder l(&heap_lock);
 
   if (is_on) return;
@@ -453,12 +453,12 @@ extern "C" void HeapProfilerStart(const char* prefix) {
   }
 
   heap_profiler_memory =
-    LowLevelAlloc::NewArena(0, LowLevelAlloc::DefaultArena());
+    LowLevelAlloc::NewArena(0, LowLevelAlloc::DefaultArena());//HeapProfile的管理内存,ProfilerMalloc使用,flags0表示不对其进行分配/释放点记录
 
   // Reserve space now for the heap profiler, so we can still write a
   // heap profile even if the application runs out of memory.
   global_profiler_buffer =
-      reinterpret_cast<char*>(ProfilerMalloc(kProfileBufferSize));
+      reinterpret_cast<char*>(ProfilerMalloc(kProfileBufferSize));//写文件的缓冲内存DoGetHeapProfileLocked
 
   heap_profile = new(ProfilerMalloc(sizeof(HeapProfileTable)))
       HeapProfileTable(ProfilerMalloc, ProfilerFree, FLAGS_mmap_profile);// 1.HeapProfileTable::HeapProfileTable, 初始化

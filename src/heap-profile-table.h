@@ -322,8 +322,8 @@ class HeapProfileTable {
   // data ----------------------------
 
   // Memory (de)allocator that we use.
-  Allocator alloc_;
-  DeAllocator dealloc_;
+  Allocator alloc_;//ProfilerMalloc
+  DeAllocator dealloc_;//ProfilerFree
 
   // Overall profile stats; we use only the Stats part,
   // but make it a Bucket to pass to UnparseBucket.

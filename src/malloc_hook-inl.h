@@ -122,7 +122,7 @@ inline MallocHook::NewHook MallocHook::GetNewHook() {
   return base::internal::new_hooks_.GetSingular();
 }
 
-inline void MallocHook::InvokeNewHook(const void* p, size_t s) {
+inline void MallocHook::InvokeNewHook(const void* p, size_t s) {//@code99, 触发记录分配点
   if (PREDICT_FALSE(!base::internal::new_hooks_.empty())) {
     InvokeNewHookSlow(p, s);
   }
@@ -133,7 +133,7 @@ inline MallocHook::DeleteHook MallocHook::GetDeleteHook() {
   return base::internal::delete_hooks_.GetSingular();
 }
 
-inline void MallocHook::InvokeDeleteHook(const void* p) {
+inline void MallocHook::InvokeDeleteHook(const void* p) {//@code99, 触发记录释放点
   if (PREDICT_FALSE(!base::internal::delete_hooks_.empty())) {
     InvokeDeleteHookSlow(p);
   }

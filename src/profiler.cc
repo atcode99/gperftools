@@ -159,7 +159,7 @@ static void CpuProfilerSwitch(int signal_number)
     	char full_profile_name[1024];
 
 		snprintf(full_profile_name, sizeof(full_profile_name), "%s.%u",
-                 base_profile_name, profile_count++);
+                 base_profile_name, profile_count++);// profile_count, 每次profiler的文件后缀计数+1
 
         if(!ProfilerStart(full_profile_name))
         {

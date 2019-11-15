@@ -133,15 +133,15 @@ HeapProfileTable::HeapProfileTable(Allocator alloc,
       address_map_(NULL) {
   // Make a hash table for buckets.
   const int table_bytes = kHashTableSize * sizeof(*bucket_table_);
-  bucket_table_ = static_cast<Bucket**>(alloc_(table_bytes));
+  bucket_table_ = static_cast<Bucket**>(alloc_(table_bytes));//1.初始化bucket_table_
   memset(bucket_table_, 0, table_bytes);
 
   // Make an allocation map.
   address_map_ =
-      new(alloc_(sizeof(AllocationMap))) AllocationMap(alloc_, dealloc_);
+      new(alloc_(sizeof(AllocationMap))) AllocationMap(alloc_, dealloc_);//2.初始化address_map_
 
   // Initialize.
-  memset(&total_, 0, sizeof(total_));
+  memset(&total_, 0, sizeof(total_));//3.初始化total_
   num_buckets_ = 0;
 }
 
@@ -165,8 +165,8 @@ HeapProfileTable::~HeapProfileTable() {
 }
 
 HeapProfileTable::Bucket* HeapProfileTable::GetBucket(int depth,
-                                                      const void* const key[]) {
-  // Make hash-value
+                                                      const void* const key[]) {//@code99, 在HeapProfile管理内存获取bucket
+  // Make hash-value，哈希运算
   uintptr_t h = 0;
   for (int i = 0; i < depth; i++) {
     h += reinterpret_cast<uintptr_t>(key[i]);
@@ -181,7 +181,7 @@ HeapProfileTable::Bucket* HeapProfileTable::GetBucket(int depth,
   for (Bucket* b = bucket_table_[buck]; b != 0; b = b->next) {
     if ((b->hash == h) &&
         (b->depth == depth) &&
-        equal(key, key + depth, b->stack)) {
+        equal(key, key + depth, b->stack)) { //判断函数调用栈是否相等 bool equal ( InputIterator1 first1, InputIterator1 last1, InputIterator2 first2 )
       return b;
     }
   }
@@ -189,19 +189,19 @@ HeapProfileTable::Bucket* HeapProfileTable::GetBucket(int depth,
   // Create new bucket
   const size_t key_size = sizeof(key[0]) * depth;
   const void** kcopy = reinterpret_cast<const void**>(alloc_(key_size));
-  copy(key, key + depth, kcopy);
+  copy(key, key + depth, kcopy);//OutputIterator copy (InputIterator first, InputIterator last, OutputIterator result)
   Bucket* b = reinterpret_cast<Bucket*>(alloc_(sizeof(Bucket)));
   memset(b, 0, sizeof(*b));
-  b->hash  = h;
-  b->depth = depth;
-  b->stack = kcopy;
+  b->hash  = h;//bucket记录分配点相关信息
+  b->depth = depth;//函数调用栈深度
+  b->stack = kcopy;//函数调用栈
   b->next  = bucket_table_[buck];
   bucket_table_[buck] = b;
   num_buckets_++;
   return b;
 }
 
-int HeapProfileTable::GetCallerStackTrace(
+int HeapProfileTable::GetCallerStackTrace(//@code99, 获取函数调用栈
     int skip_count, void* stack[kMaxStackDepth]) {
   return MallocHook::GetCallerStackTrace(
       stack, kMaxStackDepth, kStripFrames + skip_count + 1);
@@ -211,8 +211,8 @@ void HeapProfileTable::RecordAlloc(
     const void* ptr, size_t bytes, int stack_depth,
     const void* const call_stack[]) {//@code99, 记录分配点
   Bucket* b = GetBucket(stack_depth, call_stack);
-  b->allocs++;
-  b->alloc_size += bytes;
+  b->allocs++;//bucket记录分配点相关信息, 次数
+  b->alloc_size += bytes;//bucket记录分配点相关信息, 内存大小
   total_.allocs++;
   total_.alloc_size += bytes;
 
@@ -225,9 +225,9 @@ void HeapProfileTable::RecordAlloc(
 void HeapProfileTable::RecordFree(const void* ptr) {//@code99, 记录释放点
   AllocValue v;
   if (address_map_->FindAndRemove(ptr, &v)) {
-    Bucket* b = v.bucket();
-    b->frees++;
-    b->free_size += v.bytes;
+    Bucket* b = v.bucket();//函数栈并没有清除,1.可以重用,不需要频繁的ProfilerMalloc和ProfilerFree 2.可以用来定位在哪里分配了大量分配内存
+    b->frees++;//bucket记录释放点相关信息, 次数
+    b->free_size += v.bytes;//bucket记录释放点相关信息, 内存大小
     total_.frees++;
     total_.free_size += v.bytes;
   }
@@ -297,7 +297,7 @@ int HeapProfileTable::UnparseBucket(const Bucket& b,
   // If it looks like the snprintf failed, ignore the fact we printed anything
   if (printed < 0 || printed >= bufsize - buflen) return buflen;
   buflen += printed;
-  for (int d = 0; d < b.depth; d++) {
+  for (int d = 0; d < b.depth; d++) {//如果有调用栈，打印调用栈
     printed = snprintf(buf + buflen, bufsize - buflen, " 0x%08" PRIxPTR,
                        reinterpret_cast<uintptr_t>(b.stack[d]));
     if (printed < 0 || printed >= bufsize - buflen) return buflen;
@@ -310,7 +310,7 @@ int HeapProfileTable::UnparseBucket(const Bucket& b,
 }
 
 HeapProfileTable::Bucket**
-HeapProfileTable::MakeSortedBucketList() const {
+HeapProfileTable::MakeSortedBucketList() const {//@code99, 获取所有的bucket并按照当前使用的(分配的但未释放的)内存大小排序
   Bucket** list = static_cast<Bucket**>(alloc_(sizeof(Bucket) * num_buckets_));
 
   int bucket_count = 0;
@@ -321,7 +321,7 @@ HeapProfileTable::MakeSortedBucketList() const {
   }
   RAW_DCHECK(bucket_count == num_buckets_, "");
 
-  sort(list, list + num_buckets_, ByAllocatedSpace);
+  sort(list, list + num_buckets_, ByAllocatedSpace);//ByAllocatedSpace当前使用的(分配的但未释放的)内存大小排序
 
   return list;
 }
@@ -339,7 +339,7 @@ void HeapProfileTable::IterateOrderedAllocContexts(
   dealloc_(list);
 }
 
-int HeapProfileTable::FillOrderedProfile(char buf[], int size) const {
+int HeapProfileTable::FillOrderedProfile(char buf[], int size) const {//@code99, 填充heap堆内存性能剖析文件
   Bucket** list = MakeSortedBucketList();
 
   // Our file format is "bucket, bucket, ..., bucket, proc_self_maps_info".
@@ -355,9 +355,9 @@ int HeapProfileTable::FillOrderedProfile(char buf[], int size) const {
       return 0;
   }
   bool dummy;   // "wrote_all" -- did /proc/self/maps fit in its entirety?
-  map_length += FillProcSelfMaps(buf + map_length, size - map_length, &dummy);
+  map_length += FillProcSelfMaps(buf + map_length, size - map_length, &dummy);//写入/proc/pid/maps文本内容
   RAW_DCHECK(map_length <= size, "");
-  char* const map_start = buf + size - map_length;      // move to end
+  char* const map_start = buf + size - map_length;      // move to end, 移到最后面
   memmove(map_start, buf, map_length);
   size -= map_length;
 
@@ -369,7 +369,7 @@ int HeapProfileTable::FillOrderedProfile(char buf[], int size) const {
       return 0;
   }
   bucket_length = UnparseBucket(total_, buf, bucket_length, size,
-                                " heapprofile", &stats);
+                                " heapprofile", &stats);//依次为当前使用的(分配的但未释放的)内存总数，当前使用的(分配的但未释放的)内存总长度，当前分配的内存总数，当前分配的内存总长度
 
   // Dump the mmap list first.
   if (profile_mmap_) {
@@ -380,14 +380,14 @@ int HeapProfileTable::FillOrderedProfile(char buf[], int size) const {
 
   for (int i = 0; i < num_buckets_; i++) {
     bucket_length = UnparseBucket(*list[i], buf, bucket_length, size, "",
-                                  &stats);
+                                  &stats);//依次为调用栈当前使用的(分配的但未释放的)内存总数，调用栈当前使用的(分配的但未释放的)内存总长度，调用栈当前分配的内存总数，调用栈当前分配的内存总长度
   }
   RAW_DCHECK(bucket_length < size, "");
 
   dealloc_(list);
 
   RAW_DCHECK(buf + bucket_length <= map_start, "");
-  memmove(buf + bucket_length, map_start, map_length);  // close the gap
+  memmove(buf + bucket_length, map_start, map_length);  // close the gap, 和/proc/pid/maps合并
 
   return bucket_length + map_length;
 }

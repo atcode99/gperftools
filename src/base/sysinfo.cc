@@ -846,7 +846,7 @@ namespace tcmalloc {
 // and return the actual size occupied in 'buf'.  We fill wrote_all to true
 // if we successfully wrote all proc lines to buf, false else.
 // We do not provision for 0-terminating 'buf'.
-int FillProcSelfMaps(char buf[], int size, bool* wrote_all) {
+int FillProcSelfMaps(char buf[], int size, bool* wrote_all) {//@code99, 写入/proc/pid/maps文本内容
   ProcMapsIterator::Buffer iterbuf;
   ProcMapsIterator it(0, &iterbuf);   // 0 means "current pid"
 

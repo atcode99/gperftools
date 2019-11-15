@@ -87,7 +87,7 @@ void RawClose(RawFD handle) {
 // Re-run fn until it doesn't cause EINTR.
 #define NO_INTR(fn)  do {} while ((fn) < 0 && errno == EINTR)
 
-RawFD RawOpenForWriting(const char* filename) {
+RawFD RawOpenForWriting(const char* filename) {//@code99, openÎÄ¼þ
   return open(filename, O_WRONLY|O_CREAT|O_TRUNC, 0664);
 }
 
