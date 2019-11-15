@@ -177,7 +177,7 @@ static void CpuProfilerSwitch(int signal_number)
 // Profile data structure singleton: Constructor will check to see if
 // profiling should be enabled.  Destructor will write profile data
 // out to disk.
-CpuProfiler CpuProfiler::instance_;
+CpuProfiler CpuProfiler::instance_;//全局变量, 在main前初始化
 
 // Initialize profiling: activated if getenv("CPUPROFILE") exists.
 CpuProfiler::CpuProfiler()
@@ -185,7 +185,7 @@ CpuProfiler::CpuProfiler()
   // TODO(cgd) Move this code *out* of the CpuProfile constructor into a
   // separate object responsible for initialization. With ProfileHandler there
   // is no need to limit the number of profilers.
-  if (getenv("CPUPROFILE") == NULL) {
+  if (getenv("CPUPROFILE") == NULL) { //env CPUPROFILE配了, 才进入执行
     if (!FLAGS_cpu_profiler_unittest) {
       RAW_LOG(WARNING, "CPU profiler linked but no valid CPUPROFILE environment variable found\n");
     }
@@ -206,7 +206,7 @@ CpuProfiler::CpuProfiler()
   if (signal_number_str != NULL) {
     long int signal_number = strtol(signal_number_str, NULL, 10);
     if (signal_number >= 1 && signal_number <= 64) {
-      intptr_t old_signal_handler = reinterpret_cast<intptr_t>(signal(signal_number, CpuProfilerSwitch));//指定处理CPUPROFILESIGNAL信号的方法
+      intptr_t old_signal_handler = reinterpret_cast<intptr_t>(signal(signal_number, CpuProfilerSwitch));//signal指定处理CPUPROFILESIGNAL信号的方法
       if (old_signal_handler == 0) {
         RAW_LOG(INFO,"Using signal %d as cpu profiling switch", signal_number);
       } else {
@@ -239,11 +239,11 @@ bool CpuProfiler::Start(const char* fname, const ProfilerOptions* options) {
   }
 
   ProfileHandlerState prof_handler_state;
-  ProfileHandlerGetState(&prof_handler_state);
+  ProfileHandlerGetState(&prof_handler_state);//获取配置和安装信号处理程序
 
   ProfileData::Options collector_options;
   collector_options.set_frequency(prof_handler_state.frequency);
-  if (!collector_.Start(fname, collector_options)) {
+  if (!collector_.Start(fname, collector_options)) {//启动样本收集器
     return false;
   }
 
@@ -320,7 +320,7 @@ void CpuProfiler::GetCurrentState(ProfilerState* state) {
 
 void CpuProfiler::EnableHandler() {
   RAW_CHECK(prof_handler_token_ == NULL, "SIGPROF handler already registered");
-  prof_handler_token_ = ProfileHandlerRegisterCallback(prof_handler, this);
+  prof_handler_token_ = ProfileHandlerRegisterCallback(prof_handler, this);//callbacks_ is CpuProfiler::prof_handler
   RAW_CHECK(prof_handler_token_ != NULL, "Failed to set up SIGPROF handler");
 }
 
@@ -347,7 +347,7 @@ void CpuProfiler::prof_handler(int sig, siginfo_t*, void* signal_ucontext,
     // Under frame-pointer-based unwinding at least on x86, the
     // top-most active routine doesn't show up as a normal frame, but
     // as the "pc" value in the signal handler context.
-    stack[0] = GetPC(*reinterpret_cast<ucontext_t*>(signal_ucontext));
+    stack[0] = GetPC(*reinterpret_cast<ucontext_t*>(signal_ucontext));//1.获取主调函数的指令指针IP
 
     // We skip the top three stack trace entries (this function,
     // SignalHandler::SignalHandler and one signal handler frame)
@@ -357,7 +357,7 @@ void CpuProfiler::prof_handler(int sig, siginfo_t*, void* signal_ucontext,
     // we could skip nothing, but that would increase the profile size
     // unnecessarily.
     int depth = GetStackTraceWithContext(stack + 1, arraysize(stack) - 1,
-                                         3, signal_ucontext);
+                                         3, signal_ucontext);//2.获取函数调用栈
 
     void **used_stack;
     if (depth > 0 && stack[1] == stack[0]) {
@@ -369,7 +369,7 @@ void CpuProfiler::prof_handler(int sig, siginfo_t*, void* signal_ucontext,
       depth++;  // To account for pc value in stack[0];
     }
 
-    instance->collector_.Add(depth, used_stack);//添加到样本收集器
+    instance->collector_.Add(depth, used_stack);//3.添加到样本收集器
   }
 }
 
@@ -388,7 +388,7 @@ extern "C" PERFTOOLS_DLL_DECL int ProfilingIsEnabledForAllThreads() {
 }
 
 extern "C" PERFTOOLS_DLL_DECL int ProfilerStart(const char* fname) { //@code99, CPUprofiler启动函数
-  return CpuProfiler::instance_.Start(fname, NULL);
+  return CpuProfiler::instance_.Start(fname, NULL);// CpuProfiler::CpuProfiler
 }
 
 extern "C" PERFTOOLS_DLL_DECL int ProfilerStartWithOptions(

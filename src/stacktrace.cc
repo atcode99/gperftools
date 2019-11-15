@@ -296,7 +296,7 @@ PERFTOOLS_DLL_DECL int GetStackTrace(void** result, int max_depth,
 }
 
 PERFTOOLS_DLL_DECL int GetStackTraceWithContext(void** result, int max_depth,
-                                                int skip_count, const void *uc) {
+                                                int skip_count, const void *uc) {//@code99, 获取函数调用栈
   StacktraceScope scope;
   if (!scope.IsStacktraceAllowed()) {
     return 0;

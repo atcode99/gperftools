@@ -313,7 +313,7 @@ static int GET_STACK_TRACE_OR_FRAMES {
   // would be (before this __asm__ instruction) to call Noop() defined as
   //   static void Noop() __attribute__ ((noinline));  // prevent inlining
   //   static void Noop() { asm(""); }  // prevent optimizing-away
-  __asm__ volatile ("mov %%rbp, %0" : "=r" (rbp));
+  __asm__ volatile ("mov %%rbp, %0" : "=r" (rbp));//Ö¡»ùÖ¸Õë
   // Arguments are passed in registers on x86-64, so we can't just
   // offset from &result
   sp = (void **) rbp;

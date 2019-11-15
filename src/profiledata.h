@@ -162,8 +162,8 @@ class ProfileData {
     Entry entry[kAssociativity];
   };
 
-  Bucket*       hash_;          // hash table
-  Slot*         evict_;         // evicted entries
+  Bucket*       hash_;          // hash table, 1024*4
+  Slot*         evict_;         // evicted entries, 256K
   int           num_evicted_;   // how many evicted entries?
   int           out_;           // fd for output file.
   int           count_;         // How many samples recorded

@@ -178,12 +178,12 @@ inline void* GetPC(const struct ucontext_t& signal_ucontext) {
 // the right value for your system, and add it to the list in
 // configure.ac (or set it manually in your config.h).
 #else
-inline void* GetPC(const ucontext_t& signal_ucontext) {
+inline void* GetPC(const ucontext_t& signal_ucontext) {//@code99, 获取主调函数的指令指针IP
 #if defined(__s390__) && !defined(__s390x__)
   // Mask out the AMODE31 bit from the PC recorded in the context.
   return (void*)((unsigned long)signal_ucontext.PC_FROM_UCONTEXT & 0x7fffffffUL);
 #else
-  return (void*)signal_ucontext.PC_FROM_UCONTEXT;   // defined in config.h
+  return (void*)signal_ucontext.PC_FROM_UCONTEXT;   // defined in config.h, uc_mcontext.gregs[REG_RIP], 指令指针
 #endif
 }
 

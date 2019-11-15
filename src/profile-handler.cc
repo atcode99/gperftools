@@ -265,20 +265,20 @@ static void CreateThreadTimerKey(pthread_key_t *pkey) {
 }
 
 static void StartLinuxThreadTimer(int timer_type, int signal_number,
-                                  int32 frequency, pthread_key_t timer_key) {
+                                  int32 frequency, pthread_key_t timer_key) {//@code99, 启动linux线程定时器
   int rv;
   struct sigevent sevp;
   timer_t timerid;
   struct itimerspec its;
   memset(&sevp, 0, sizeof(sevp));
-  sevp.sigev_notify = SIGEV_THREAD_ID;// 将信号发送到线程号为_sigev_un._tid的线程
-  sevp._sigev_un._tid = sys_gettid();// 线程tid
+  sevp.sigev_notify = SIGEV_THREAD_ID;// 1.指定将信号发送到线程号为_sigev_un._tid的线程
+  sevp._sigev_un._tid = sys_gettid();// 2.获取线程tid
   sevp.sigev_signo = signal_number;
   clockid_t clock = CLOCK_THREAD_CPUTIME_ID;
   if (timer_type == ITIMER_REAL) {
     clock = CLOCK_MONOTONIC;
   }
-  rv = timer_create(clock, &sevp, &timerid);
+  rv = timer_create(clock, &sevp, &timerid);// 用了POSIX的定时器, 所以编译需要链接librt.so
   if (rv) {
     RAW_LOG(FATAL, "aborting due to timer_create error: %s", strerror(errno));
   }
@@ -346,13 +346,13 @@ ProfileHandler::ProfileHandler()
 #if HAVE_LINUX_SIGEV_THREAD_ID
   // Do this early because we might be overriding signal number.
 
-  const char *per_thread = getenv("CPUPROFILE_PER_THREAD_TIMERS");
+  const char *per_thread = getenv("CPUPROFILE_PER_THREAD_TIMERS");//线程启动单独的定时器
   const char *signal_number = getenv("CPUPROFILE_TIMER_SIGNAL");
 
   if (per_thread || signal_number) {
     if (timer_create && pthread_once) {
       CreateThreadTimerKey(&thread_timer_key);
-      per_thread_timer_enabled_ = true;
+      per_thread_timer_enabled_ = true;//per_thread_timer_enabled_设置成true
       // Override signal number if requested.
       if (signal_number) {
         signal_number_ = strtol(signal_number, NULL, 0);
@@ -421,14 +421,14 @@ ProfileHandlerToken* ProfileHandler::RegisterCallback(
   {
     ScopedSignalBlocker block(signal_number_);
     SpinLockHolder sl(&signal_lock_);
-    callbacks_.push_back(token);//call back函数CpuProfiler::prof_handler
+    callbacks_.push_back(token);//定时器超时SignalHandler的callbacks_函数CpuProfiler::prof_handler
     ++callback_count_;
     UpdateTimer(true);
   }
   return token;
 }
 
-void ProfileHandler::UnregisterCallback(ProfileHandlerToken* token) {
+void ProfileHandler::UnregisterCallback(ProfileHandlerToken* token) {//@code99, 删除回调函数和停止定时器
   SpinLockHolder cl(&control_lock_);
   for (CallbackIterator it = callbacks_.begin(); it != callbacks_.end();
        ++it) {
@@ -438,10 +438,10 @@ void ProfileHandler::UnregisterCallback(ProfileHandlerToken* token) {
         ScopedSignalBlocker block(signal_number_);
         SpinLockHolder sl(&signal_lock_);
         delete *it;
-        callbacks_.erase(it);
+        callbacks_.erase(it);//删除callbacks_
         --callback_count_;
         if (callback_count_ == 0)
-          UpdateTimer(false);
+          UpdateTimer(false);//停止定时器
       }
       return;
     }
@@ -514,7 +514,7 @@ bool ProfileHandler::IsSignalHandlerAvailable() {
   return sa.sa_handler == SIG_IGN || sa.sa_handler == SIG_DFL;
 }
 //bool enable_finstrument=false;
-void ProfileHandler::SignalHandler(int sig, siginfo_t* sinfo, void* ucontext) {
+void ProfileHandler::SignalHandler(int sig, siginfo_t* sinfo, void* ucontext) {//@code99, 定时器超时信号处理函数
   int saved_errno = errno;
   // At this moment, instance_ must be initialized because the handler is
   // enabled in RegisterThread or RegisterCallback only after
@@ -555,7 +555,7 @@ void ProfileHandlerReset() {
 }
 
 void ProfileHandlerGetState(ProfileHandlerState* state) {
-  ProfileHandler::Instance()->GetState(state);//调用ProfileHandler::Init
+  ProfileHandler::Instance()->GetState(state);//调用ProfileHandler::Init, 获取配置和安装信号处理程序
 }
 
 #else  // OS_CYGWIN

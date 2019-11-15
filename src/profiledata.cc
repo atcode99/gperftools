@@ -71,8 +71,8 @@ void ProfileData::Evict(const Entry& entry) {//@code99, Ñù±¾Êı¾İÇıÖğµ½evict_Êı×é
     assert(num_evicted_ == 0);
     assert(nslots <= kBufferLength);
   }
-  evict_[num_evicted_++] = entry.count;
-  evict_[num_evicted_++] = d;
+  evict_[num_evicted_++] = entry.count; //Ñù±¾·¢Éú´ÎÊı
+  evict_[num_evicted_++] = d; //º¯Êıµ÷ÓÃÕ»Éî¶È
   memcpy(&evict_[num_evicted_], entry.stack, d * sizeof(Slot));
   num_evicted_ += d;
 }
@@ -168,7 +168,7 @@ void ProfileData::Stop() {
   }
 
   // Move data from hash table to eviction buffer
-  for (int b = 0; b < kBuckets; b++) {
+  for (int b = 0; b < kBuckets; b++) {//ÇıÖğËùÓĞµÄhash_¼ÇÂ¼
     Bucket* bucket = &hash_[b];
     for (int a = 0; a < kAssociativity; a++) {
       if (bucket->entry[a].count > 0) {
@@ -182,7 +182,7 @@ void ProfileData::Stop() {
     FlushEvicted();
   }
 
-  // Write end of data marker
+  // Write end of data marker, 010½áÎ²·Ö¸ô·û
   evict_[num_evicted_++] = 0;         // count
   evict_[num_evicted_++] = 1;         // depth
   evict_[num_evicted_++] = 0;         // end of data marker
@@ -191,12 +191,12 @@ void ProfileData::Stop() {
   // Dump "/proc/self/maps" so we get list of mapped shared libraries
   DumpProcSelfMaps(out_);
 
-  Reset();
+  Reset();//Çå³ıËùÓĞ·ÖÅäµÄ×ÊÔ´
   fprintf(stderr, "PROFILE: interrupts/evictions/bytes = %d/%d/%" PRIuS "\n",
           count_, evictions_, total_bytes_);
 }
 
-void ProfileData::Reset() {
+void ProfileData::Reset() {//@code99, Çå³ıhash_&evict_&FDWrite
   if (!enabled()) {
     return;
   }
@@ -276,10 +276,10 @@ void ProfileData::Add(int depth, const void* const* stack) {//@code99, Ìí¼Óµ½Ñù±
 
   count_++;
 
-  // See if table already has an entry for this trace
+  // See if table already has an entry for this trace, ¼ì²éÊÇhash_·ñ´æÔÚ¼ÇÂ¼
   bool done = false;
-  Bucket* bucket = &hash_[h % kBuckets];
-  for (int a = 0; a < kAssociativity; a++) {
+  Bucket* bucket = &hash_[h % kBuckets];//1024¸öbucket
+  for (int a = 0; a < kAssociativity; a++) {//Ã¿¸öbucketÓĞ4Ìõhash³åÍ»µÄ¼ÇÂ¼
     Entry* e = &bucket->entry[a];
     if (e->depth == depth) {
       bool match = true;
@@ -290,7 +290,7 @@ void ProfileData::Add(int depth, const void* const* stack) {//@code99, Ìí¼Óµ½Ñù±
         }
       }
       if (match) {
-        e->count++;//²ÉÑùÑù±¾¼Ó1
+        e->count++;//Èç¹û´æÔÚ, ²ÉÑùÑù±¾¼Ó1
         done = true;
         break;
       }
@@ -298,7 +298,7 @@ void ProfileData::Add(int depth, const void* const* stack) {//@code99, Ìí¼Óµ½Ñù±
   }
 
   if (!done) {
-    // Evict entry with smallest count
+    // Evict entry with smallest count, ÇıÖğ×îĞ¡¼ÆÊıµÄ¼ÇÂ¼
     Entry* e = &bucket->entry[0];
     for (int a = 1; a < kAssociativity; a++) {
       if (bucket->entry[a].count < e->count) {
@@ -328,5 +328,5 @@ void ProfileData::FlushEvicted() {//@code99, Ğ´ÈëÑù±¾ÊÕ¼¯ÎÄ¼ş
     total_bytes_ += bytes;
     FDWrite(out_, buf, bytes);
   }
-  num_evicted_ = 0;
+  num_evicted_ = 0;//evict_Êı×éÇåÁã
 }
