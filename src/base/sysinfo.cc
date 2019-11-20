@@ -502,7 +502,7 @@ void ProcMapsIterator::Init(pid_t pid, Buffer *buffer,
   } else if (pid == 0) {
     // We have to kludge a bit to deal with the args ConstructFilename
     // expects.  The 1 is never used -- it's only impt. that it's not 0.
-    ConstructFilename("/proc/self/maps", 1, ibuf_, Buffer::kBufSize);
+    ConstructFilename("/proc/self/maps", 1, ibuf_, Buffer::kBufSize);//ibuf_为/proc/self/maps文件名
   } else {
     ConstructFilename("/proc/%d/maps", pid, ibuf_, Buffer::kBufSize);
   }
@@ -517,7 +517,7 @@ void ProcMapsIterator::Init(pid_t pid, Buffer *buffer,
   } else {
     ConstructFilename("/proc/%d/map", pid, ibuf_, Buffer::kBufSize);
   }
-  NO_INTR(fd_ = open(ibuf_, O_RDONLY));
+  NO_INTR(fd_ = open(ibuf_, O_RDONLY));//打开/proc/self/maps, 读取/proc/self/maps可以得到当前进程的内存映射关系
 #elif defined(__sun__)
   if (pid == 0) {
     ConstructFilename("/proc/self/map", 1, ibuf_, Buffer::kBufSize);
@@ -593,7 +593,7 @@ bool ProcMapsIterator::NextExt(uint64 *start, uint64 *end, char **flags,
 
       int nread = 0;            // fill up buffer with text
       while (etext_ < ebuf_) {
-        NO_INTR(nread = read(fd_, etext_, ebuf_ - etext_));
+        NO_INTR(nread = read(fd_, etext_, ebuf_ - etext_));//读取/proc/self/maps
         if (nread > 0)
           etext_ += nread;
         else
@@ -617,7 +617,7 @@ bool ProcMapsIterator::NextExt(uint64 *start, uint64 *end, char **flags,
     unsigned filename_offset = 0;
 #if defined(__linux__)
     // for now, assume all linuxes have the same format
-    if (!ParseProcMapsLine(
+    if (!ParseProcMapsLine(//解析/proc/self/maps行
         stext_,
         start ? start : &tmpstart,
         end ? end : &tmpend,

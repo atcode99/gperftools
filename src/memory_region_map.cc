@@ -366,7 +366,7 @@ bool MemoryRegionMap::FindAndMarkStackRegion(uintptr_t stack_top,
                 reinterpret_cast<void*>(stack_top),
                 reinterpret_cast<void*>(region->start_addr),
                 reinterpret_cast<void*>(region->end_addr));
-    const_cast<Region*>(region)->set_is_stack();  // now we know
+    const_cast<Region*>(region)->set_is_stack();  // now we know, 这个region是属于stack的
       // cast is safe (set_is_stack does not change the set ordering key)
     *result = *region;  // create *result as an independent copy
   }
@@ -579,7 +579,7 @@ static const int kStripFrames = 1;
 static const int kStripFrames = 3;
 #endif
 
-void MemoryRegionMap::RecordRegionAddition(const void* start, size_t size) {
+void MemoryRegionMap::RecordRegionAddition(const void* start, size_t size) { //@code99, MmapHook/MremapHook/SbrkHook
   // Record start/end info about this memory acquisition call in a new region:
   Region region;
   region.Create(start, size);
@@ -764,7 +764,7 @@ void MemoryRegionMap::RecordRegionRemovalInBucket(int depth,
 void MemoryRegionMap::MmapHook(const void* result,
                                const void* start, size_t size,
                                int prot, int flags,
-                               int fd, off_t offset) {
+                               int fd, off_t offset) {//mmap是一种内存映射文件的方法，即将一个文件或者其它对象映射到进程的地址空间，实现文件磁盘地址和进程虚拟地址空间中一段虚拟地址的一一对映关系
   // TODO(maxim): replace all 0x%" PRIxS " by %p when RAW_VLOG uses a safe
   // snprintf reimplementation that does not malloc to pretty-print NULL
   RAW_VLOG(10, "MMap = 0x%" PRIxPTR " of %" PRIuS " at %" PRIu64 " "
@@ -799,7 +799,7 @@ void MemoryRegionMap::MremapHook(const void* result,
   }
 }
 
-void MemoryRegionMap::SbrkHook(const void* result, ptrdiff_t increment) {
+void MemoryRegionMap::SbrkHook(const void* result, ptrdiff_t increment) {//分配heap区域
   RAW_VLOG(10, "Sbrk = 0x%" PRIxPTR " of %" PRIdS "", (uintptr_t)result, increment);
   if (result != reinterpret_cast<void*>(-1)) {
     if (increment > 0) {

@@ -362,7 +362,7 @@ class PERFTOOLS_DLL_DECL HeapLeakChecker {
   // Snapshot taken when the checker was created.  May be NULL
   // for the global heap checker object.  We use void* instead of
   // HeapProfileTable::Snapshot* to avoid including heap-profile-table.h.
-  void* start_snapshot_;
+  void* start_snapshot_; //base内存&泄露检查的时候忽略
 
   bool has_checked_;  // if we have done the leak check, so these are ready:
   ssize_t inuse_bytes_increase_;  // bytes-in-use increase for this checker

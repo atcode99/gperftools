@@ -424,10 +424,10 @@ void HeapProfileTable::DumpNonLiveIterator(const void* ptr, AllocValue* v,
 // if not the entry is not live and is not present in arg->base.
 void HeapProfileTable::AddIfNonLive(const void* ptr, AllocValue* v,
                                     AddNonLiveArgs* arg) {
-  if (v->live()) {
+  if (v->live()) {//live的忽略掉
     v->set_live(false);
   } else {
-    if (arg->base != NULL && arg->base->map_.Find(ptr) != NULL) {
+    if (arg->base != NULL && arg->base->map_.Find(ptr) != NULL) {//base的忽略掉
       // Present in arg->base, so do not save
     } else {
       arg->dest->Add(ptr, *v);
@@ -447,7 +447,7 @@ bool HeapProfileTable::WriteProfile(const char* file_name,
                             NULL);
     RawWrite(fd, buf, len);
     const DumpArgs args(fd, NULL);
-    allocations->Iterate<const DumpArgs&>(DumpNonLiveIterator, args);
+    allocations->Iterate<const DumpArgs&>(DumpNonLiveIterator, args);//依次打印
     RawWrite(fd, kProcSelfMapsHeader, strlen(kProcSelfMapsHeader));
     DumpProcSelfMaps(fd);
     RawClose(fd);
@@ -505,11 +505,11 @@ HeapProfileTable::Snapshot* HeapProfileTable::NonLiveSnapshot(
            int(total_.allocs - total_.frees),
            int(total_.alloc_size - total_.free_size));
 
-  Snapshot* s = new (alloc_(sizeof(Snapshot))) Snapshot(alloc_, dealloc_);
+  Snapshot* s = new (alloc_(sizeof(Snapshot))) Snapshot(alloc_, dealloc_);//分配leaks Snapshot
   AddNonLiveArgs args;
   args.dest = s;
   args.base = base;
-  address_map_->Iterate<AddNonLiveArgs*>(AddIfNonLive, &args);
+  address_map_->Iterate<AddNonLiveArgs*>(AddIfNonLive, &args);//args->dest->Add(ptr, *v)
   RAW_VLOG(2, "NonLiveSnapshot output: %d %d\n",
            int(s->total_.allocs - s->total_.frees),
            int(s->total_.alloc_size - s->total_.free_size));
@@ -559,7 +559,7 @@ void HeapProfileTable::Snapshot::ReportLeaks(const char* checker_name,
 
   // Group objects by Bucket
   ReportState state;
-  map_.Iterate(&ReportCallback, &state);
+  map_.Iterate(&ReportCallback, &state);//以调用栈为下标汇总所有的leaks
 
   // Sort buckets by decreasing leaked size
   const int n = state.buckets_.size();
@@ -590,7 +590,7 @@ void HeapProfileTable::Snapshot::ReportLeaks(const char* checker_name,
   static const int kBufSize = 2<<10;
   char buffer[kBufSize];
   if (should_symbolize)
-    symbolization_table.Symbolize();
+    symbolization_table.Symbolize();//翻译函数名
   for (int i = 0; i < to_report; i++) {
     const Entry& e = entries[i];
     base::RawPrinter printer(buffer, kBufSize);

@@ -93,7 +93,7 @@
 #include "base/spinlock.h"
 #include "base/sysinfo.h"
 #include "base/stl_allocator.h"
-
+#include <sstream>
 using std::string;
 using std::basic_string;
 using std::pair;
@@ -246,7 +246,7 @@ static SpinLock heap_checker_lock(SpinLock::LINKER_INITIALIZED);
 
 // Heap profile prefix for leak checking profiles.
 // Gets assigned once when leak checking is turned on, then never modified.
-static const string* profile_name_prefix = NULL;
+static const string* profile_name_prefix = NULL;// /目录/$exe.$pid
 
 // Whole-program heap leak checker.
 // Gets assigned once when leak checking is turned on,
@@ -576,15 +576,15 @@ static void NewHook(const void* ptr, size_t size) {//@code99, heapCheckNewHook
     int depth = HeapProfileTable::GetCallerStackTrace(0, stack);
 
     { SpinLockHolder l(&heap_checker_lock);
-      if (size > max_heap_object_size) max_heap_object_size = size;
+      if (size > max_heap_object_size) max_heap_object_size = size;//1.1记录最大的object_size,LiveObjects检查用
       uintptr_t addr = AsInt(ptr);
-      if (addr < min_heap_address) min_heap_address = addr;
+      if (addr < min_heap_address) min_heap_address = addr;//1.2记录最小的heap_address,LiveObjects检查用
       addr += size;
-      if (addr > max_heap_address) max_heap_address = addr;
+      if (addr > max_heap_address) max_heap_address = addr;//1.3记录最大的heap_address,LiveObjects检查用
       if (heap_checker_on) {
-        heap_profile->RecordAlloc(ptr, size, depth, stack);
+        heap_profile->RecordAlloc(ptr, size, depth, stack);//2.记录分配点
         if (ignore) {
-          heap_profile->MarkAsIgnored(ptr);
+          heap_profile->MarkAsIgnored(ptr);//3.记录Ignored
         }
       }
     }
@@ -596,7 +596,7 @@ static void DeleteHook(const void* ptr) {//@code99, heapCheckDeleteHook
   if (ptr != NULL) {
     RAW_VLOG(16, "Recording Free %p", ptr);
     { SpinLockHolder l(&heap_checker_lock);
-      if (heap_checker_on) heap_profile->RecordFree(ptr);
+      if (heap_checker_on) heap_profile->RecordFree(ptr);//记录释放点
     }
     RAW_VLOG(17, "Free Recorded: %p", ptr);
   }
@@ -633,7 +633,7 @@ static void RegisterStackLocked(const void* top_ptr) {
   RAW_DCHECK(heap_checker_lock.IsHeld(), "");
   RAW_DCHECK(MemoryRegionMap::LockIsHeld(), "");
   RAW_VLOG(10, "Thread stack at %p", top_ptr);// &a_local_var, 地址位于/proc/self/maps [stack]中
-  uintptr_t top = AsInt(top_ptr);
+  uintptr_t top = AsInt(top_ptr);//获取指针
   stack_tops->insert(top);  // add for later use
 
   // make sure stack_direction is initialized
@@ -643,15 +643,15 @@ static void RegisterStackLocked(const void* top_ptr) {
 
   // Find memory region with this stack
   MemoryRegionMap::Region region;
-  if (MemoryRegionMap::FindAndMarkStackRegion(top, &region)) {
-    // Make the proper portion of the stack live:
+  if (MemoryRegionMap::FindAndMarkStackRegion(top, &region)) { //MmapHook/MremapHook/SbrkHook, 根据.cc文件注释 To accomplish the goal of functioning before/during global object constructor
+    // Make the proper portion of the stack live:                                  //nmap来分配新的内存，作为一个另外的栈，供线程使用, UNIX高级环境编程第12章, 故子线程thread_regs.SP都在此找到
     if (stack_direction == GROWS_TOWARDS_LOW_ADDRESSES) {
-      RAW_VLOG(11, "Live stack at %p of %" PRIuPTR " bytes",
+      RAW_VLOG(11, "Live stack at step11 %p of %" PRIuPTR " bytes",
                   top_ptr, region.end_addr - top);
       live_objects->push_back(AllocObject(top_ptr, region.end_addr - top,
                                           THREAD_DATA));
     } else {  // GROWS_TOWARDS_HIGH_ADDRESSES
-      RAW_VLOG(11, "Live stack at %p of %" PRIuPTR " bytes",
+      RAW_VLOG(11, "Live stack at step12 %p of %" PRIuPTR " bytes",
                   AsPtr(region.start_addr),
                   top - region.start_addr);
       live_objects->push_back(AllocObject(AsPtr(region.start_addr),
@@ -659,8 +659,8 @@ static void RegisterStackLocked(const void* top_ptr) {
                                           THREAD_DATA));
     }
   // not in MemoryRegionMap, look in library_live_objects:
-  } else if (FLAGS_heap_check_ignore_global_live) { // 收集所有的/proc/self/maps [stack]中的可疑内存到live_objects
-    for (LibraryLiveObjectsStacks::iterator lib = library_live_objects->begin();
+  } else if (FLAGS_heap_check_ignore_global_live) { // 'w'，数据区                        //局部变量s、malloc分配内存指针p都位于栈段, 主线程stack
+    for (LibraryLiveObjectsStacks::iterator lib = library_live_objects->begin();//全局初始变量n、全局未初始变量m、局部静态变量s1，都位于进程的数据段
          lib != library_live_objects->end(); ++lib) {
       for (LiveObjectsStack::iterator span = lib->second.begin();
            span != lib->second.end(); ++span) {
@@ -693,12 +693,12 @@ static void RegisterStackLocked(const void* top_ptr) {
           }
           // Make the proper portion of the stack live:
           if (stack_direction == GROWS_TOWARDS_LOW_ADDRESSES) {
-            RAW_VLOG(11, "Live stack at %p of %" PRIuPTR " bytes",
-                        top_ptr, stack_end - top);
+            RAW_VLOG(11, "Live stack at step21 %p of %" PRIuPTR " bytes",
+                        top_ptr, stack_end - top);//一般从高地址向低地址增长, region.end_addr - top, 因为a_local_var是最新的局部变量, 故可以计算出长度
             live_objects->push_back(
               AllocObject(top_ptr, stack_end - top, THREAD_DATA));
           } else {  // GROWS_TOWARDS_HIGH_ADDRESSES
-            RAW_VLOG(11, "Live stack at %p of %" PRIuPTR " bytes",
+            RAW_VLOG(11, "Live stack at step22 %p of %" PRIuPTR " bytes",
                         AsPtr(stack_start), top - stack_start);
             live_objects->push_back(
               AllocObject(AsPtr(stack_start), top - stack_start, THREAD_DATA));
@@ -759,7 +759,7 @@ static void MakeDisabledLiveCallbackLocked(
     uintptr_t start_address = AsInt(ptr);
     uintptr_t end_address = start_address + info.object_size;
     StackTopSet::const_iterator iter
-      = stack_tops->lower_bound(start_address); // lower_bound查找
+      = stack_tops->lower_bound(start_address); // lower_bound查找thread_regs.SP,寄存器堆栈指针
     if (iter != stack_tops->end()) {
       RAW_DCHECK(*iter >= start_address, "");
       if (*iter < end_address) { // 线程调用栈
@@ -807,7 +807,7 @@ static void RecordGlobalDataLocked(uintptr_t start_address,
   if (filename == NULL  ||  *filename == '\0') {
     filename = kUnnamedProcSelfMapEntry;
   }
-  RAW_VLOG(11, "Looking into %s: 0x%" PRIxPTR "..0x%" PRIxPTR,
+  RAW_VLOG(11, "Looking into switch after %s: 0x%" PRIxPTR "..0x%" PRIxPTR,
               filename, start_address, end_address);
   (*library_live_objects)[filename].
     push_back(AllocObject(AsPtr(start_address),
@@ -874,7 +874,7 @@ void HeapLeakChecker::DisableLibraryAllocsLocked(const char* library,
     DisableChecksFromToLocked(AsPtr(start_address), AsPtr(end_address), depth);
     if (IsLibraryNamed(library, "/libpthread")  ||
         IsLibraryNamed(library, "/libdl")  ||
-        IsLibraryNamed(library, "/ld")) {
+        IsLibraryNamed(library, "/ld")) { //只有三种库记录到global_region_caller_ranges
       RAW_VLOG(10, "Global memory regions made by %s will be live data",
                   library);
       if (global_region_caller_ranges == NULL) {
@@ -894,7 +894,7 @@ HeapLeakChecker::ProcMapsResult HeapLeakChecker::UseProcMapsLocked(
   RAW_DCHECK(heap_checker_lock.IsHeld(), "");
   // Need to provide own scratch memory to ProcMapsIterator:
   ProcMapsIterator::Buffer buffer;
-  ProcMapsIterator it(0, &buffer);
+  ProcMapsIterator it(0, &buffer);//打开/proc/self/maps
   if (!it.Valid()) {
     int errsv = errno;
     RAW_LOG(ERROR, "Could not open /proc/self/maps: errno=%d. "
@@ -908,7 +908,7 @@ HeapLeakChecker::ProcMapsResult HeapLeakChecker::UseProcMapsLocked(
   bool saw_nonzero_inode = false;
   bool saw_shared_lib_with_nonzero_inode = false;
   while (it.Next(&start_address, &end_address, &permissions,
-                 &file_offset, &inode, &filename)) {
+                 &file_offset, &inode, &filename)) {//读取/proc/self/maps, 可以得到当前进程的内存映射关系
     if (start_address >= end_address) {
       // Warn if a line we can be interested in is ill-formed:
       if (inode != 0) {
@@ -940,19 +940,19 @@ HeapLeakChecker::ProcMapsResult HeapLeakChecker::UseProcMapsLocked(
         saw_shared_lib_with_nonzero_inode = true;
       }
     }
-
+    RAW_VLOG(11, "Looking into switch before %s: 0x%" PRIxPTR "..0x%" PRIxPTR, filename, start_address, end_address);
     switch (proc_maps_task) {
       case DISABLE_LIBRARY_ALLOCS:
         // All lines starting like
         // "401dc000-4030f000 r??p 00132000 03:01 13991972  lib/bin"
         // identify a data and code sections of a shared library or our binary
-        if (inode != 0 && strncmp(permissions, "r-xp", 4) == 0) {//程序区
-          DisableLibraryAllocsLocked(filename, start_address, end_address);
+        if (inode != 0 && strncmp(permissions, "r-xp", 4) == 0) {
+          DisableLibraryAllocsLocked(filename, start_address, end_address);//程序区,记录到global_region_caller_ranges&&disabled_ranges
         }
         break;
       case RECORD_GLOBAL_DATA:
         RecordGlobalDataLocked(start_address, end_address,
-                               permissions, filename);
+                               permissions, filename);//数据区,记录到library_live_objects
         break;
       default:
         RAW_CHECK(0, "");
@@ -1041,7 +1041,7 @@ static enum {
     if (thread_pids[i] == self_thread_pid) continue;//如果只有一个主线程，以下不执行，故live_objects没有数据
     RAW_VLOG(11, "Handling thread with pid %d", thread_pids[i]);
 #ifdef THREAD_REGS
-    THREAD_REGS thread_regs;
+    THREAD_REGS thread_regs;//每个线程都有它自己的一组CPU寄存器，称为线程的上下文
 #define sys_ptrace(r, p, a, d)  syscall(SYS_ptrace, (r), (p), (a), (d))
     // We use sys_ptrace to avoid thread locking
     // because this is called from TCMalloc_ListAllProcessThreads
@@ -1050,7 +1050,7 @@ static enum {
       // Need to use SP to get all the data from the very last stack frame:
       COMPILE_ASSERT(sizeof(thread_regs.SP) == sizeof(void*),
                      SP_register_does_not_look_like_a_pointer);
-      RegisterStackLocked(reinterpret_cast<void*>(thread_regs.SP));
+      RegisterStackLocked(reinterpret_cast<void*>(thread_regs.SP));//SP寄存器为堆栈指针，SP始终指向栈顶
       // Make registers live (just in case PTRACE_ATTACH resulted in some
       // register pointers still being in the registers and not on the stack):
       for (void** p = reinterpret_cast<void**>(&thread_regs);
@@ -1066,7 +1066,7 @@ static enum {
 #endif
   }
   // Use all the collected thread (stack) liveness sources:
-  IgnoreLiveObjectsLocked("threads stack data", "");//如果只有一个主线程，不执行，因为live_objects没有数据
+  IgnoreLiveObjectsLocked("threads stack data", "");//1.1如果只有一个主线程，不执行，因为live_objects没有数据; 如果有子线程, 有数据, SP始终指向栈顶
   if (thread_registers.size()) { //如果只有一个主线程，不执行，因为thread_registers没有数据
     // Make thread registers be live heap data sources.
     // we rely here on the fact that vector is in one memory chunk:
@@ -1075,7 +1075,7 @@ static enum {
     live_objects->push_back(AllocObject(&thread_registers[0],
                                         thread_registers.size() * sizeof(void*),
                                         THREAD_REGISTERS));
-    IgnoreLiveObjectsLocked("threads register data", "");
+    IgnoreLiveObjectsLocked("threads register data", "");//1.2线程寄存器的live检查
   }
   // Do all other liveness walking while all threads are stopped:
   IgnoreNonThreadLiveObjectsLocked();
@@ -1100,10 +1100,10 @@ void HeapLeakChecker::IgnoreNonThreadLiveObjectsLocked() {
   // are known before we start looking at them
   // in MakeDisabledLiveCallbackLocked:
   RegisterStackLocked(self_thread_stack_top);
-  IgnoreLiveObjectsLocked("stack data", "");
+  IgnoreLiveObjectsLocked("stack data", "");//2.1.栈数据
 
   // Make objects we were told to ignore live:
-  if (ignored_objects) {
+  if (ignored_objects) { //分配以后调用了IgnoreObject
     for (IgnoredObjectsMap::const_iterator object = ignored_objects->begin();
          object != ignored_objects->end(); ++object) {
       const void* ptr = AsPtr(object->first);
@@ -1120,7 +1120,7 @@ void HeapLeakChecker::IgnoreNonThreadLiveObjectsLocked() {
                        " IgnoreObject() has disappeared", ptr, object->second);
       }
     }
-    IgnoreLiveObjectsLocked("ignored objects", "");
+    IgnoreLiveObjectsLocked("ignored objects", "");//2.2.忽略的对象IgnoreObject
   }
 
   // Treat objects that were allocated when a Disabler was live as
@@ -1128,7 +1128,7 @@ void HeapLeakChecker::IgnoreNonThreadLiveObjectsLocked() {
   // and Y is reachable from X, arrange that neither X nor Y are
   // treated as leaks.
   heap_profile->IterateAllocs(MakeIgnoredObjectsLiveCallbackLocked);
-  IgnoreLiveObjectsLocked("disabled objects", "");
+  IgnoreLiveObjectsLocked("disabled objects", "");//2.3.无效的对象HeapLeakChecker::Disabler
 
   // Make code-address-disabled objects live and ignored:
   // This in particular makes all thread-specific data live
@@ -1137,12 +1137,12 @@ void HeapLeakChecker::IgnoreNonThreadLiveObjectsLocked() {
   // library code with UseProcMapsLocked(DISABLE_LIBRARY_ALLOCS);
   // so now we declare all thread-specific data reachable from there as live.
   heap_profile->IterateAllocs(MakeDisabledLiveCallbackLocked);
-  IgnoreLiveObjectsLocked("disabled code", "");
+  IgnoreLiveObjectsLocked("disabled code", "");//2.4.无效的代码分配的"r-xp" 六种类型的库DisableLibraryAllocsLocked
 
   // Actually make global data live:
-  if (FLAGS_heap_check_ignore_global_live) {
+  if (FLAGS_heap_check_ignore_global_live) {   //2.5.数据读写区 "w" RecordGlobalDataLocked, 需要去除没必要检查的region
     bool have_null_region_callers = false;
-    for (LibraryLiveObjectsStacks::iterator l = library_live_objects->begin(); //library_live_objects is RECORD_GLOBAL_DATA
+    for (LibraryLiveObjectsStacks::iterator l = library_live_objects->begin(); 
          l != library_live_objects->end(); ++l) {
       RAW_CHECK(live_objects->empty(), "");
       // Process library_live_objects in l->second
@@ -1166,16 +1166,16 @@ void HeapLeakChecker::IgnoreNonThreadLiveObjectsLocked() {
         // This will in particular exclude all memory chunks used
         // by the heap itself as well as what's been allocated with
         // any allocator on top of mmap.
-        bool subtract = true;
-        if (!region->is_stack  &&  global_region_caller_ranges) { //filter caller global_region_caller_ranges is DISABLE_LIBRARY_ALLOCS
-          if (region->caller() == static_cast<uintptr_t>(NULL)) {
+        bool subtract = true;                                     //stack的region已经在1.栈数据处理过了; 无效的代码global_region_caller_ranges "r-xp" 三种类型的库DisableLibraryAllocsLocked
+        if (!region->is_stack  &&  global_region_caller_ranges) { //非stack的region && filter caller global_region_caller_ranges is DISABLE_LIBRARY_ALLOCS
+          if (region->caller() == static_cast<uintptr_t>(NULL)) { //region的caller为空
             have_null_region_callers = true;
           } else {
             GlobalRegionCallerRangeMap::const_iterator iter
               = global_region_caller_ranges->upper_bound(region->caller());
             if (iter != global_region_caller_ranges->end()) {
               RAW_DCHECK(iter->first > region->caller(), "");
-              if (iter->second < region->caller()) {  // in special region
+              if (iter->second < region->caller()) {  // in special region, region的caller在global_region_caller_ranges
                 subtract = false;
               }
             }
@@ -1187,9 +1187,9 @@ void HeapLeakChecker::IgnoreNonThreadLiveObjectsLocked() {
                i != l->second.end(); ++i) {
             // subtract *region from *i
             uintptr_t start = AsInt(i->ptr);
-            uintptr_t end = start + i->size;
-            if (region->start_addr <= start  &&  end <= region->end_addr) {
-              // full deletion due to subsumption
+            uintptr_t end = start + i->size; RAW_VLOG(11, "Library live region at region->start_addr %p, region->end_addr %p, start %p, end %p", region->start_addr, region->end_addr, start, end);
+            if (region->start_addr <= start  &&  end <= region->end_addr) {RAW_VLOG(11, "Ignored live object at full deletion");
+              // full deletion due to subsumption, global_region_caller_ranges的region完全包含library_live_objects
             } else if (start < region->start_addr  &&
                        region->end_addr < end) {  // cutting-out split
               live_objects->push_back(AllocObject(i->ptr,
@@ -1197,20 +1197,20 @@ void HeapLeakChecker::IgnoreNonThreadLiveObjectsLocked() {
                                                   IN_GLOBAL_DATA));
               live_objects->push_back(AllocObject(AsPtr(region->end_addr),
                                                   end - region->end_addr,
-                                                  IN_GLOBAL_DATA));
+                                                  IN_GLOBAL_DATA));RAW_VLOG(11, "Ignored live object at cutting-out split");
             } else if (region->end_addr > start  &&
                        region->start_addr <= start) {  // cut from start
               live_objects->push_back(AllocObject(AsPtr(region->end_addr),
                                                   end - region->end_addr,
-                                                  IN_GLOBAL_DATA));
+                                                  IN_GLOBAL_DATA));RAW_VLOG(11, "Ignored live object at cut from start");
             } else if (region->start_addr > start  &&
                        region->start_addr < end) {  // cut from end
               live_objects->push_back(AllocObject(i->ptr,
                                                   region->start_addr - start,
-                                                  IN_GLOBAL_DATA));
+                                                  IN_GLOBAL_DATA));RAW_VLOG(11, "Ignored live object at cut from end");
             } else {  // pass: no intersection
               live_objects->push_back(AllocObject(i->ptr, i->size,
-                                                  IN_GLOBAL_DATA));
+                                                  IN_GLOBAL_DATA));RAW_VLOG(11, "Ignored live object at no intersection");
             }
           }
           // Move live_objects back into l->second
@@ -1287,7 +1287,7 @@ void HeapLeakChecker::IgnoreAllLiveObjectsLocked(const void* self_stack_top) {
   thread_listing_status = CALLBACK_NOT_STARTED;
   bool need_to_ignore_non_thread_objects = true;
   self_thread_pid = getpid();
-  self_thread_stack_top = self_stack_top;
+  self_thread_stack_top = self_stack_top;//&a_local_var
   if (FLAGS_heap_check_ignore_thread_live) {enable_finstrument=false;
     // In case we are doing CPU profiling we'd like to do all the work
     // in the main thread, not in the special thread created by
@@ -1569,11 +1569,11 @@ char* HeapLeakChecker::MakeProfileNameLocked() {
   char* file_name = reinterpret_cast<char*>(Allocator::Allocate(len));
   snprintf(file_name, len, "%s.%s-end%s",
            profile_name_prefix->c_str(), name_,
-           HeapProfileTable::kFileExt);
+           HeapProfileTable::kFileExt); // /目录/$exe.$pid.name_-end.heap
   return file_name;
 }
 
-void HeapLeakChecker::Create(const char *name, bool make_start_snapshot) {
+void HeapLeakChecker::Create(const char *name, bool make_start_snapshot) { //@code99, 记录base内存
   SpinLockHolder l(lock_);
   name_ = NULL;  // checker is inactive
   start_snapshot_ = NULL;
@@ -1592,7 +1592,7 @@ void HeapLeakChecker::Create(const char *name, bool make_start_snapshot) {
       memcpy(n, name, strlen(name) + 1);
       name_ = n;  // checker is active
       if (make_start_snapshot) {
-        start_snapshot_ = heap_profile->TakeSnapshot();
+        start_snapshot_ = heap_profile->TakeSnapshot();//1.记录base内存
       }
 
       const HeapProfileTable::Stats& t = heap_profile->total();
@@ -1613,7 +1613,7 @@ void HeapLeakChecker::Create(const char *name, bool make_start_snapshot) {
   }
 }
 
-HeapLeakChecker::HeapLeakChecker(const char *name) : lock_(new SpinLock) {
+HeapLeakChecker::HeapLeakChecker(const char *name) : lock_(new SpinLock) {//@code99, HeapLeakChecker构造函数
   RAW_DCHECK(strcmp(name, "_main_") != 0, "_main_ is reserved");
   Create(name, true/*create start_snapshot_*/);
 }
@@ -1666,7 +1666,7 @@ static string invocation_path() { return program_invocation_name; }
 static const char* invocation_name() { return "<your binary>"; }
 static string invocation_path() { return "<your binary>"; }
 #endif
-
+static void SystemCmdCatProcPidMaps() {std::string systemCmd ( "cat /proc/" ); std::ostringstream strstrm; strstrm << (unsigned int) getpid(); systemCmd += strstrm.str(); systemCmd += "/maps"; system ( systemCmd.c_str());}
 // Prints commands that users can run to get more information
 // about the reported leaks.
 static void SuggestPprofCommand(const char* pprof_file_arg) {
@@ -1709,7 +1709,7 @@ static void SuggestPprofCommand(const char* pprof_file_arg) {
           );
 }
 
-bool HeapLeakChecker::DoNoLeaks(ShouldSymbolize should_symbolize) {
+bool HeapLeakChecker::DoNoLeaks(ShouldSymbolize should_symbolize) { //@code99, 堆内存泄露检查
   SpinLockHolder l(lock_);
   // The locking also helps us keep the messages
   // for the two checks close together.
@@ -1745,7 +1745,7 @@ bool HeapLeakChecker::DoNoLeaks(ShouldSymbolize should_symbolize) {
     // Update global_region_caller_ranges. They may need to change since
     // e.g. initialization because shared libraries might have been loaded or
     // unloaded.
-    Allocator::DeleteAndNullIfNot(&global_region_caller_ranges);//by HeapLeakChecker_InternalInitStart DISABLE_LIBRARY_ALLOCS
+    Allocator::DeleteAndNullIfNot(&global_region_caller_ranges);//更新global_region_caller_ranges, by HeapLeakChecker_InternalInitStart DISABLE_LIBRARY_ALLOCS 程序区中某些lib分配的堆内存可以忽略，比如pthread_setspecific
     ProcMapsResult pm_result = UseProcMapsLocked(DISABLE_LIBRARY_ALLOCS);//double check, if there is no change, DisableLibraryAllocsLocked disabled_ranges will not insert
     RAW_CHECK(pm_result == PROC_MAPS_USED, "");
 
@@ -1763,11 +1763,11 @@ bool HeapLeakChecker::DoNoLeaks(ShouldSymbolize should_symbolize) {
 
     // Make the heap profile, other threads are locked out.
     HeapProfileTable::Snapshot* base =
-        reinterpret_cast<HeapProfileTable::Snapshot*>(start_snapshot_);
+        reinterpret_cast<HeapProfileTable::Snapshot*>(start_snapshot_);//start_snapshot_的内存记录
     RAW_DCHECK(FLAGS_heap_check_pointer_source_alignment > 0, "");
     pointer_source_alignment = FLAGS_heap_check_pointer_source_alignment;
-    IgnoreAllLiveObjectsLocked(&a_local_var);
-    leaks = heap_profile->NonLiveSnapshot(base);//删除start_snapshot_的内存记录
+    IgnoreAllLiveObjectsLocked(&a_local_var);//查找所有的live内存对象
+    leaks = heap_profile->NonLiveSnapshot(base);//忽略所有的live内存对象&忽略start_snapshot_的内存记录
 
     inuse_bytes_increase_ = static_cast<ssize_t>(leaks->total().alloc_size);
     inuse_allocs_increase_ = static_cast<ssize_t>(leaks->total().allocs);
@@ -1810,7 +1810,7 @@ bool HeapLeakChecker::DoNoLeaks(ShouldSymbolize should_symbolize) {
     }
 
     if (leaks != NULL) {
-      pprof_file = MakeProfileNameLocked();
+      pprof_file = MakeProfileNameLocked();//发生leaks,获取文件名/目录/$exe.$pid.name_-end.heap
     }
   }
 
@@ -1852,15 +1852,15 @@ bool HeapLeakChecker::DoNoLeaks(ShouldSymbolize should_symbolize) {
       RAW_CHECK(MallocHook::GetMmapHook() == NULL, "");
       RAW_CHECK(MallocHook::GetSbrkHook() == NULL, "");
       have_disabled_hooks_for_symbolize = true;
-      leaks->ReportLeaks(name_, pprof_file, true);  // true = should_symbolize
+      leaks->ReportLeaks(name_, pprof_file, true);  // true = should_symbolize, 报告堆内存检查泄漏, normal等模式
     } else {
-      leaks->ReportLeaks(name_, pprof_file, false);
+      leaks->ReportLeaks(name_, pprof_file, false);//报告堆内存检查泄漏, local模式
     }
     if (FLAGS_heap_check_identify_leaks) {
       leaks->ReportIndividualObjects();
     }
 
-    SuggestPprofCommand(pprof_file);
+    SuggestPprofCommand(pprof_file);SystemCmdCatProcPidMaps();
 
     {
       SpinLockHolder hl(&heap_checker_lock);
@@ -2055,7 +2055,7 @@ void HeapLeakChecker_InternalInitStart() {
 
   // make a good place and name for heap profile leak dumps
   string* profile_prefix =
-    new string(FLAGS_heap_check_dump_directory + "/" + invocation_name());
+    new string(FLAGS_heap_check_dump_directory + "/" + invocation_name());// /目录/$exe
 
   // Finalize prefix for dumping leak checking profiles.
   const int32 our_pid = getpid();   // safest to call getpid() outside lock
@@ -2070,7 +2070,7 @@ void HeapLeakChecker_InternalInitStart() {
   *profile_prefix += pid_buf;
   { SpinLockHolder l(&heap_checker_lock);
     RAW_DCHECK(profile_name_prefix == NULL, "");
-    profile_name_prefix = profile_prefix;
+    profile_name_prefix = profile_prefix;// /目录/$exe.$pid
   }
 
   // Make sure new/delete hooks are installed properly
